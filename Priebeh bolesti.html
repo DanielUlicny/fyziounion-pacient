@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>fyzio — Priebeh bolesti</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: radial-gradient(120% 100% at 50% 0%, #eef1f6 0%, #e4e8f0 100%);
+    -webkit-font-smoothing: antialiased;
+    color: #1b2238;
+  }
+  :root {
+    --ink: #1b2238; --text: #404a66; --muted: #8b91a7; --faint: #b3b8c8;
+    --bg: #f4f6f9; --line: #eaecf2; --chip: #f2f4f9;
+    --mono: 'Roboto Mono', ui-monospace, monospace;
+    --ok: #2f9e6f; --ok-ink: #1e7a52; --ok-wash: #e8f5ee; --ok-line: #cfeadd;
+    --warm: #cf9116; --warm-wash: #fbf2db;
+    --danger: #d8584f;
+  }
+  button { font-family: inherit; }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  * { scrollbar-width: none; }
+  @keyframes pbFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .pb-fade { animation: pbFade .28s cubic-bezier(.32,.72,0,1) both; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<template id="__bundler_thumbnail">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#3b6fe0"/>
+    <polyline points="15,70 30,55 45,50 60,42 75,38 90,30" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="90" cy="30" r="5" fill="#fff"/>
+  </svg>
+</template>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="frames/ios-frame.jsx"></script>
+<script type="text/babel" src="app/data.jsx"></script>
+<script type="text/babel" src="app/ui.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+
+// ── Pain history mock data ────────────────────────────────────
+const PAIN_DATA = {
+  "7d": {
+    points: [
+      { x: "3.6.",  v: 7,    full: "Utorok 3. júna 2026"   },
+      { x: "4.6.",  v: 6,    full: "Streda 4. júna 2026"   },
+      { x: "5.6.",  v: 5,    full: "Štvrtok 5. júna 2026"  },
+      { x: "6.6.",  v: null, full: "Piatok 6. júna 2026",  rest: true },
+      { x: "7.6.",  v: null, full: "Sobota 7. júna 2026",  rest: true },
+      { x: "8.6.",  v: 4,    full: "Nedeľa 8. júna 2026"   },
+      { x: "9.6.",  v: 5,    full: "Pondelok 9. júna 2026", today: true },
+    ],
+    currentV: 5, currentLabel: "Dnes", trend: -2, avg: 5.4,
+  },
+  "3m": {
+    // Weekly averages grouped by month
+    points: [
+      { x: "16.3", v: 8, month: "Mar", full: "Týždeň 16.–22. marca 2026"  },
+      { x: "23.3", v: 7, month: "Mar", full: "Týždeň 23.–29. marca 2026"  },
+      { x: "30.3", v: 7, month: "Mar", full: "Týždeň 30. marca – 5. apríla" },
+      { x: "6.4",  v: 6, month: "Apr", full: "Týždeň 6.–12. apríla 2026"  },
+      { x: "13.4", v: 6, month: "Apr", full: "Týždeň 13.–19. apríla 2026" },
+      { x: "20.4", v: 6, month: "Apr", full: "Týždeň 20.–26. apríla 2026" },
+      { x: "27.4", v: 5, month: "Apr", full: "Týždeň 27. apríla – 3. mája" },
+      { x: "4.5",  v: 5, month: "Máj", full: "Týždeň 4.–10. mája 2026"    },
+      { x: "11.5", v: 5, month: "Máj", full: "Týždeň 11.–17. mája 2026"   },
+      { x: "18.5", v: 4, month: "Máj", full: "Týždeň 18.–24. mája 2026"   },
+      { x: "25.5", v: 5, month: "Máj", full: "Týždeň 25.–31. mája 2026"   },
+      { x: "2.6",  v: 5, month: "Jún", full: "Týždeň 2.–8. júna 2026"     },
+    ],
+    currentV: 5, currentLabel: "Tento týždeň", trend: -3, avg: 5.8,
+  },
+  "12m": {
+    points: [
+      { x: "Júl", v: 9, full: "Júl 2025"      },
+      { x: "Aug", v: 8, full: "August 2025"    },
+      { x: "Sep", v: 8, full: "September 2025" },
+      { x: "Okt", v: 7, full: "Október 2025"   },
+      { x: "Nov", v: 7, full: "November 2025"  },
+      { x: "Dec", v: 6, full: "December 2025"  },
+      { x: "Jan", v: 6, full: "Január 2026"    },
+      { x: "Feb", v: 5, full: "Február 2026"   },
+      { x: "Mar", v: 5, full: "Marec 2026"     },
+      { x: "Apr", v: 4, full: "Apríl 2026"     },
+      { x: "Máj", v: 4, full: "Máj 2026"       },
+      { x: "Jún", v: 5, full: "Jún 2026"       },
+    ],
+    currentV: 5, currentLabel: "Tento mesiac", trend: -4, avg: 6.2,
+  },
+};
+
+// ── Pain text description ─────────────────────────────────────
+const painDescText = (v) =>
+  v === 0 ? "Žiadna bolesť" :
+  v <= 2  ? "Žiadna alebo veľmi mierna" :
+  v <= 4  ? "Mierna bolesť" :
+  v <= 6  ? "Stredná bolesť" :
+  v <= 8  ? "Výrazná bolesť" :
+            "Silná, neznesiteľná bolesť";
+
+// ── Pain color helper ─────────────────────────────────────────
+const pcol = (v) => `oklch(0.68 0.13 ${145 - v * 11})`;
+
+// ── Smooth bezier path ────────────────────────────────────────
+function smoothPath(pts) {
+  if (!pts.length) return "";
+  if (pts.length === 1) return `M${pts[0].x} ${pts[0].y}`;
+  const t = 0.28;
+  let d = `M${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const c1x = (p1.x + (p2.x - p0.x) * t).toFixed(2);
+    const c1y = (p1.y + (p2.y - p0.y) * t).toFixed(2);
+    const c2x = (p2.x - (p3.x - p1.x) * t).toFixed(2);
+    const c2y = (p2.y - (p3.y - p1.y) * t).toFixed(2);
+    d += ` C${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`;
+  }
+  return d;
+}
+
+// ── Chart ─────────────────────────────────────────────────────
+function PainChart({ data, period, accent, selIdx, onSel }) {
+  const W = 308, H = 148;
+  const pT = 24, pR = 10, pB = 36, pL = 28;
+  const plotW = W - pL - pR;
+  const plotH = H - pT - pB;
+  const allPts = data.points;
+  const n = allPts.length;
+  const xOf = (i) => pL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const yOf = (v) => pT + (1 - v / 10) * plotH;
+  const bottom = pT + plotH;
+
+  const valuePts = allPts
+    .map((p, i) => p.v != null ? { x: xOf(i), y: yOf(p.v), v: p.v, idx: i } : null)
+    .filter(Boolean);
+
+  const linePath = smoothPath(valuePts);
+  const areaPath = valuePts.length > 1
+    ? `${linePath} L${valuePts[valuePts.length - 1].x} ${bottom} L${valuePts[0].x} ${bottom} Z`
+    : "";
+
+  const effSel = selIdx ?? (valuePts.length - 1);
+  const selPt = valuePts[effSel];
+
+  // Month groups for 3m
+  const monthGroups = (() => {
+    if (period !== "3m") return [];
+    const groups = [];
+    let last = null;
+    allPts.forEach((p, i) => {
+      if (p.month !== last) { groups.push({ month: p.month, startIdx: i }); last = p.month; }
+    });
+    return groups;
+  })();
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 162, overflow: "visible" }}>
+      <defs>
+        <linearGradient id="pbGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={accent} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={accent} stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+
+      {/* Y-axis grid + labels */}
+      {[0, 5, 10].map(v => (
+        <React.Fragment key={v}>
+          <line x1={pL} x2={W - pR} y1={yOf(v)} y2={yOf(v)}
+            stroke="#eaecf2" strokeWidth="1"
+            strokeDasharray={v === 0 || v === 10 ? "none" : "3 5"} />
+          <text x={pL - 7} y={yOf(v) + 4} textAnchor="end"
+            fontSize="10" fill="#c0c4d0" fontFamily="Inter,sans-serif" fontWeight="600">{v}</text>
+        </React.Fragment>
+      ))}
+
+      {/* Area fill */}
+      {areaPath && <path d={areaPath} fill="url(#pbGrad)" />}
+
+      {/* Line */}
+      {valuePts.length > 1 && (
+        <path d={linePath} fill="none" stroke={accent} strokeWidth="2.5"
+          strokeLinecap="round" strokeLinejoin="round" />
+      )}
+
+      {/* Month dividers + group labels (3m) */}
+      {monthGroups.map((mg, gi) => {
+        const sx = xOf(mg.startIdx);
+        const ex = gi < monthGroups.length - 1 ? xOf(monthGroups[gi + 1].startIdx) : W - pR;
+        const mid = (sx + ex) / 2;
+        return (
+          <React.Fragment key={mg.month}>
+            {gi > 0 && (
+              <line x1={sx} x2={sx} y1={pT} y2={bottom + 10}
+                stroke="#e4e6f0" strokeWidth="1.5" />
+            )}
+            <text x={mid} y={H - 4} textAnchor="middle"
+              fontSize="11" fill="#a8aec0" fontFamily="Inter,sans-serif" fontWeight="660">
+              {mg.month}
+            </text>
+          </React.Fragment>
+        );
+      })}
+
+      {/* Rest-day markers (7d) */}
+      {period === "7d" && allPts.map((p, i) => p.v == null ? (
+        <g key={i}>
+          <circle cx={xOf(i)} cy={yOf(3)} r={3.5}
+            fill="none" stroke="#dde0ea" strokeWidth="1.5" strokeDasharray="2 2" />
+        </g>
+      ) : null)}
+
+      {/* Dots */}
+      {valuePts.map((p, i) => {
+        const isSel = i === effSel;
+        const col = pcol(p.v);
+        return (
+          <g key={i} onClick={() => onSel(i)} style={{ cursor: "pointer" }}>
+            {isSel && (
+              <circle cx={p.x} cy={p.y} r={11} fill={col} fillOpacity="0.12" />
+            )}
+            <circle cx={p.x} cy={p.y}
+              r={isSel ? 5.5 : 3.5}
+              fill={isSel ? col : "#fff"}
+              stroke={col}
+              strokeWidth={isSel ? 0 : 2} />
+            {isSel && (
+              <circle cx={p.x} cy={p.y} r={2.5} fill="#fff" fillOpacity="0.6" />
+            )}
+          </g>
+        );
+      })}
+
+      {/* Tooltip above selected */}
+      {selPt && (() => {
+        const col = pcol(selPt.v);
+        const tx = Math.min(Math.max(selPt.x, pL + 18), W - pR - 18);
+        return (
+          <g style={{ pointerEvents: "none" }}>
+            <rect x={tx - 17} y={selPt.y - 34} width={34} height={24} rx={7} fill={col} />
+            <text x={tx} y={selPt.y - 17} textAnchor="middle"
+              fontSize="13.5" fontWeight="750" fill="#fff"
+              fontFamily="Inter,sans-serif">{selPt.v}</text>
+            <path d={`M${tx - 5} ${selPt.y - 10} L${tx} ${selPt.y - 4} L${tx + 5} ${selPt.y - 10}Z`}
+              fill={col} />
+          </g>
+        );
+      })()}
+
+      {/* X-axis: all dates (7d) */}
+      {period === "7d" && allPts.map((p, i) => (
+        <text key={i} x={xOf(i)} y={H - 4} textAnchor="middle"
+          fontSize="9.5" fill={p.v == null ? "#d0d4e0" : "#b0b6c8"}
+          fontFamily="Inter,sans-serif" fontWeight="600">{p.x}</text>
+      ))}
+
+      {/* X-axis: month abbreviations (12m) */}
+      {period === "12m" && allPts.map((p, i) => (
+        <text key={i} x={xOf(i)} y={H - 4} textAnchor="middle"
+          fontSize="9.5" fill="#b0b6c8" fontFamily="Inter,sans-serif" fontWeight="600">{p.x}</text>
+      ))}
+    </svg>
+  );
+}
+
+// ── Main screen ───────────────────────────────────────────────
+function PainProgressScreen({ accent }) {
+  const [period, setPeriod] = React.useState("7d");
+  const [selIdx, setSelIdx] = React.useState(null);
+
+  const data = PAIN_DATA[period];
+
+  React.useEffect(() => setSelIdx(null), [period]);
+
+  const valuePtsRich = data.points.filter(p => p.v != null);
+  const allVals = valuePtsRich.map(p => p.v);
+  const minV = Math.min(...allVals);
+  const maxV = Math.max(...allVals);
+  const avg = (allVals.reduce((a, b) => a + b, 0) / allVals.length).toFixed(1);
+
+  const trend = data.trend;
+  const todayCol = pcol(data.currentV);
+
+  const badge = trend < -0.5
+    ? { label: `↓  Klesá`, bg: "var(--ok-wash)", border: "var(--ok-line)", col: "var(--ok-ink)" }
+    : trend > 0.5
+    ? { label: `↑  Stúpa`, bg: "#fff0ee", border: "#ffd3cf", col: "var(--danger)" }
+    : { label: `→  Stabilná`, bg: "var(--chip)", border: "var(--line)", col: "var(--muted)" };
+
+  const effSel = selIdx ?? (valuePtsRich.length - 1);
+  const selPtRich = valuePtsRich[effSel];
+
+  return (
+    <div style={{ background: "var(--bg)", minHeight: "100%", paddingBottom: 32 }}>
+
+      {/* Header */}
+      <div style={{ padding: "10px 20px 14px" }}>
+        <div style={{ fontSize: 26, fontWeight: 760, color: "var(--ink)", letterSpacing: -0.4 }}>
+          Priebeh bolesti
+        </div>
+        <div style={{ fontSize: 13.5, color: "var(--muted)", marginTop: 3, fontWeight: 500 }}>
+          Vývoj vašej bolesti v čase
+        </div>
+      </div>
+
+      {/* Period selector */}
+      <div style={{ padding: "0 20px 16px" }}>
+        <Segmented value={period} onChange={setPeriod} options={[
+          { value: "7d", label: "7 dní" },
+          { value: "3m", label: "3 mesiace" },
+          { value: "12m", label: "12 mesiacov" },
+        ]} />
+      </div>
+
+      <div key={period} className="pb-fade" style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+
+        {/* Main pain card */}
+        <div style={{ background: "#fff", borderRadius: 22, padding: "18px 16px 14px",
+          border: "1px solid var(--line)", boxShadow: "0 2px 12px rgba(30,40,70,0.05)" }}>
+
+          {/* Header row */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+            <div>
+              <div style={{ fontSize: 14.5, fontWeight: 650, color: "var(--muted)", letterSpacing: 0.1 }}>
+                Úroveň bolesti
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 9, marginTop: 1 }}>
+                <span style={{ fontSize: 50, fontWeight: 800, color: todayCol, lineHeight: 1.05,
+                  letterSpacing: -2, transition: "color .3s ease" }}>
+                  {data.currentV}
+                </span>
+                <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 550 }}>
+                  {data.currentLabel}
+                </span>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center",
+              background: badge.bg, border: `1px solid ${badge.border}`,
+              borderRadius: 12, padding: "7px 12px", marginTop: 6, flexShrink: 0 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 660, color: badge.col, letterSpacing: 0.1 }}>
+                {badge.label}
+              </span>
+            </div>
+          </div>
+
+          {/* Chart */}
+          <PainChart data={data} period={period} accent={accent} selIdx={selIdx} onSel={setSelIdx} />
+
+          {/* Selected point detail card */}
+          <div style={{ minHeight: 58, marginBottom: 4 }}>
+            {selPtRich ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 12,
+                padding: "10px 12px", background: "var(--chip)", borderRadius: 14,
+                border: "1px solid var(--line)" }}>
+                <div style={{ width: 42, height: 42, borderRadius: 13, flexShrink: 0,
+                  background: pcol(selPtRich.v),
+                  display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: 18, fontWeight: 790, color: "#fff",
+                    letterSpacing: -0.5 }}>{selPtRich.v}</span>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 660, color: "var(--ink)",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {selPtRich.full || selPtRich.x}
+                    {selPtRich.today && <span style={{ marginLeft: 6, fontSize: 11.5,
+                      fontWeight: 650, color: "var(--accent)",
+                      background: "var(--accent-wash)", borderRadius: 7,
+                      padding: "1px 7px" }}>Dnes</span>}
+                    {selPtRich.rest && <span style={{ marginLeft: 6, fontSize: 11.5,
+                      fontWeight: 650, color: "var(--muted)",
+                      background: "var(--chip)", borderRadius: 7,
+                      padding: "1px 7px" }}>Deň odpočinku</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                    {painDescText(selPtRich.v)}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
+                height: 58, fontSize: 12.5, color: "var(--faint)", fontWeight: 500 }}>
+                Klepnite na bod pre detail
+              </div>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: "var(--line)", margin: "0 0 12px" }} />
+
+          {/* Stats row */}
+          <div style={{ display: "flex" }}>
+            {[
+              { label: "Priemer", v: avg },
+              { label: "Minimum", v: minV },
+              { label: "Maximum", v: maxV },
+            ].map((s, i) => (
+              <div key={s.label} style={{ flex: 1, textAlign: "center",
+                borderRight: i < 2 ? "1px solid var(--line)" : "none",
+                padding: "2px 0" }}>
+                <div style={{ fontSize: 22, fontWeight: 740, color: "var(--ink)",
+                  letterSpacing: -0.5 }}>{s.v}</div>
+                <div style={{ fontSize: 11.5, color: "var(--muted)", fontWeight: 550,
+                  marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Trend insight card */}
+        {trend < 0 && (
+          <div style={{ background: "var(--ok-wash)", borderRadius: 18, padding: "14px 16px",
+            border: "1px solid var(--ok-line)", display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 11, background: "#fff", flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 2px 8px rgba(40,150,100,0.14)" }}>
+              <Icon name="activity" size={18} stroke="var(--ok)" />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 680, color: "var(--ok-ink)", lineHeight: 1.3 }}>
+                Bolesť klesla o {Math.abs(trend)} {Math.abs(trend) === 1 ? "bod" : Math.abs(trend) < 5 ? "body" : "bodov"}
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--ok-ink)", opacity: 0.75, marginTop: 2 }}>
+                za sledované obdobie — skvelý pokrok!
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pain scale legend */}
+        <div style={{ background: "#fff", borderRadius: 18, padding: "14px 16px",
+          border: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 650, color: "var(--muted)" }}>Škála bolesti</div>
+          <div style={{ display: "flex", gap: 4, height: 10, borderRadius: 6, overflow: "hidden" }}>
+            {Array.from({ length: 11 }).map((_, i) => (
+              <div key={i} style={{ flex: 1, background: pcol(i), borderRadius: 2 }} />
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>0 žiadna</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>10 najsilnejšia</span>
+          </div>
+        </div>
+
+        {/* Edit button */}
+        <button style={{ width: "100%", background: "none",
+          border: "1.5px dashed var(--faint)", borderRadius: 16, padding: "14px 16px",
+          cursor: "pointer", display: "flex", alignItems: "center",
+          justifyContent: "center", gap: 8,
+          fontSize: 14.5, fontWeight: 620, color: "var(--muted)",
+          transition: "border-color .16s, color .16s" }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--faint)"; e.currentTarget.style.color = "var(--muted)"; }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+          Upraviť dnešnú bolesť
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── App wrapper ───────────────────────────────────────────────
+function PainProgressApp() {
+  const [tw, setTweak] = useTweaks({ primaryColor: "#3b6fe0" });
+  const accent = tw.primaryColor || "#3b6fe0";
+
+  const themeVars = {
+    "--accent": accent,
+    "--accent-light": `color-mix(in oklab, ${accent}, white 24%)`,
+    "--accent-ink": `color-mix(in oklab, ${accent}, #0c1228 30%)`,
+    "--accent-wash": `color-mix(in srgb, ${accent} 9%, white)`,
+    "--accent-wash2": `color-mix(in srgb, ${accent} 15%, white)`,
+    "--accent-soft": `color-mix(in srgb, ${accent} 20%, white)`,
+    "--accent-soft2": `color-mix(in srgb, ${accent} 12%, white)`,
+    "--accent-shadow": `color-mix(in srgb, ${accent} 34%, transparent)`,
+    "--accent-disabled": `color-mix(in srgb, ${accent} 42%, white)`,
+    "--accent-ink-bg": `color-mix(in oklab, ${accent} 36%, #141b34)`,
+  };
+
+  return (
+    <TweakCtx.Provider value={{ imagery: "striped", density: "regular", chartStyle: "soft" }}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center",
+        justifyContent: "center", padding: "28px 16px", ...themeVars }}>
+        <div style={themeVars}>
+          <IOSDevice dark={false}>
+            <div style={{ height: "100%", display: "flex", flexDirection: "column",
+              background: "var(--bg)" }}>
+              <div style={{ height: 50, flexShrink: 0, background: "var(--bg)" }} />
+              <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                <PainProgressScreen accent={accent} />
+              </div>
+              <BottomNav tab="progress" onTab={() => {}} />
+            </div>
+          </IOSDevice>
+        </div>
+
+        <TweaksPanel>
+          <TweakSection label="Vzhľad" />
+          <TweakColor label="Akcent" value={tw.primaryColor}
+            options={["#3b6fe0", "#0e9e96", "#3f7d8f", "#4f5bd5"]}
+            onChange={(v) => setTweak("primaryColor", v)} />
+        </TweaksPanel>
+      </div>
+    </TweakCtx.Provider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<PainProgressApp />);
+</script>
+</body>
+</html>

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Ranná karta – gamifikácia</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  background: #1a1a2e; display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; }
+@keyframes slideIn { from { opacity:0; transform: translateX(40px); } to { opacity:1; transform: none; } }
+@keyframes slideOut { from { opacity:1; transform: none; } to { opacity:0; transform: translateX(-40px); } }
+@keyframes pop { 0%,100%{transform:scale(1)} 50%{transform:scale(1.18)} }
+@keyframes floatUp { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-60px)} }
+@keyframes confettiFall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(200px) rotate(720deg);opacity:0} }
+@keyframes pulse { 0%,100%{opacity:.6} 50%{opacity:1} }
+.card-enter { animation: slideIn .32s cubic-bezier(.32,.72,0,1) both; }
+.pop { animation: pop .22s ease both; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+// ── Palette per step ──────────────────────────────────────────
+const STEPS = [
+  { id:"sleep", bg:"#eef3ff", accent:"#4a6fa5", emoji:"😴", title:"Ako si spal?",
+    sub:"Kvalita spánku ovplyvňuje regeneráciu.", type:"emoji4",
+    opts:[{e:"😴",l:"Zle"},{e:"😐",l:"Ujde"},{e:"😊",l:"Dobre"},{e:"🤩",l:"Výborne"}] },
+  { id:"alcohol", bg:"#fff4ee", accent:"#c0622f", emoji:"🍺", title:"Pil si včera alkohol?",
+    sub:"Alkohol spomaľuje hojenie tkanív.", type:"yesno" },
+  { id:"food", bg:"#eefaf2", accent:"#2e7d52", emoji:"🥗", title:"Jedol si dobre?",
+    sub:"Výživa je základ regenerácie.", type:"emoji4",
+    opts:[{e:"🍔",l:"Zle"},{e:"🍕",l:"Ujde"},{e:"🥙",l:"Dobre"},{e:"🥗",l:"Super"}] },
+  { id:"pain", bg:"#fef6ee", accent:"#c05621", emoji:"💊", title:"Aká je tvoja bolesť?",
+    sub:"Škála 0 (žiadna) – 10 (najsilnejšia).", type:"pain" },
+];
+
+// ── Pain face SVG ─────────────────────────────────────────────
+function PainFace({ value }) {
+  const t = value / 10;
+  // mouth: 0=big smile, 10=big frown — quadratic bezier control point
+  const mouthY = 68 + t * 8;
+  const mouthCtrl = 80 - t * 16; // smile up → frown down
+  const eyeY = 38 + t * 2;
+  // brow tilt for pain
+  const browL = t > 0.4 ? -4 * t : 0;
+  const browR = t > 0.4 ? 4 * t : 0;
+  // color: green → yellow → orange → red
+  const hue = Math.round(120 - t * 120);
+  const faceColor = `hsl(${hue}, 70%, 55%)`;
+  const svgSize = 96;
+  return (
+    <svg width={svgSize} height={svgSize} viewBox="0 0 100 100">
+      <circle cx="50" cy="52" r="44" fill={faceColor} />
+      {/* left eye */}
+      <ellipse cx="35" cy={eyeY} rx={4 + t} ry={4 - t * 0.5} fill="#1a1a2e" />
+      {/* right eye */}
+      <ellipse cx="65" cy={eyeY} rx={4 + t} ry={4 - t * 0.5} fill="#1a1a2e" />
+      {/* brows (appear when in pain) */}
+      {t > 0.3 && <>
+        <line x1={28} y1={eyeY - 9 + browL} x2={42} y2={eyeY - 9 - browL} stroke="#1a1a2e" strokeWidth="3" strokeLinecap="round"/>
+        <line x1={58} y1={eyeY - 9 - browR} x2={72} y2={eyeY - 9 + browR} stroke="#1a1a2e" strokeWidth="3" strokeLinecap="round"/>
+      </>}
+      {/* mouth */}
+      <path d={`M 30 ${mouthY} Q 50 ${mouthCtrl} 70 ${mouthY}`}
+        fill="none" stroke="#1a1a2e" strokeWidth="3.5" strokeLinecap="round"/>
+      {/* tears when very painful */}
+      {t > 0.7 && <>
+        <ellipse cx="31" cy={eyeY + 8} rx="3" ry="5" fill="#60aaff" opacity={Math.min(1,(t-0.7)*3.3)} />
+        <ellipse cx="69" cy={eyeY + 8} rx="3" ry="5" fill="#60aaff" opacity={Math.min(1,(t-0.7)*3.3)} />
+      </>}
+    </svg>
+  );
+}
+
+// ── Confetti particle ─────────────────────────────────────────
+function Confetti() {
+  const pieces = React.useMemo(() => Array.from({length: 24}, (_, i) => ({
+    id: i, x: 10 + Math.random() * 80, color: ['#f9ca24','#f0932b','#6ab04c','#7ed6df','#e056fd','#686de0'][i%6],
+    size: 6 + Math.random() * 6, delay: Math.random() * 0.8, dur: 1.2 + Math.random() * 0.6,
+  })), []);
+  return (
+    <div style={{ position:'absolute', inset:0, pointerEvents:'none', overflow:'hidden' }}>
+      {pieces.map(p => (
+        <div key={p.id} style={{
+          position:'absolute', left:`${p.x}%`, top:'-10px',
+          width: p.size, height: p.size, borderRadius: 2,
+          background: p.color,
+          animation: `confettiFall ${p.dur}s ${p.delay}s ease-in both`,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+// ── XP float ─────────────────────────────────────────────────
+function XPFloat({ pts, pos }) {
+  return (
+    <div style={{ position:'absolute', top: pos.y, left: pos.x,
+      fontSize: 18, fontWeight: 800, color:'#f9ca24',
+      textShadow:'0 2px 8px rgba(0,0,0,0.25)',
+      animation:'floatUp .9s ease both', pointerEvents:'none' }}>
+      +{pts} XP
+    </div>
+  );
+}
+
+// ── Done screen ───────────────────────────────────────────────
+function DoneScreen({ answers, onReset }) {
+  const [show, setShow] = React.useState(false);
+  React.useEffect(() => { const t = setTimeout(()=>setShow(true), 100); return ()=>clearTimeout(t); }, []);
+  const xp = Object.values(answers).reduce((s,v) => s + (v!=null ? 10 : 0), 0);
+  const streak = 7;
+  return (
+    <div style={{ height:'100%', background:'#1c3f6e', display:'flex', flexDirection:'column',
+      alignItems:'center', justifyContent:'center', padding:'0 28px', position:'relative' }}>
+      <Confetti />
+      <div style={{ fontSize: 72, marginBottom: 8, animation: show ? 'pop .4s .2s ease both' : 'none' }}>🎯</div>
+      <div style={{ fontSize: 28, fontWeight: 900, color:'#fff', letterSpacing:-0.8, marginBottom: 6, textAlign:'center' }}>
+        Skvelý štart dňa!
+      </div>
+      <div style={{ fontSize: 15, color:'rgba(255,255,255,0.65)', marginBottom: 36, textAlign:'center', lineHeight:1.5 }}>
+        Zaznamenali ste všetky ranné údaje.<br/>Váš fyzioterapeut to uvidí.
+      </div>
+
+      {/* XP card */}
+      <div style={{ width:'100%', background:'rgba(255,255,255,0.12)', borderRadius: 24, padding: '20px 24px',
+        backdropFilter:'blur(12px)', marginBottom: 16 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div>
+            <div style={{ fontSize: 13, color:'rgba(255,255,255,0.6)', fontWeight:600, marginBottom: 4 }}>
+              Dnes získané XP
+            </div>
+            <div style={{ fontSize: 38, fontWeight: 900, color:'#f9ca24', letterSpacing:-1 }}>
+              +{xp} <span style={{ fontSize:18, color:'rgba(255,255,255,0.5)' }}>XP</span>
+            </div>
+          </div>
+          <div style={{ textAlign:'center' }}>
+            <div style={{ fontSize: 36 }}>🔥</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color:'#f9ca24' }}>{streak}</div>
+            <div style={{ fontSize: 11, color:'rgba(255,255,255,0.55)', fontWeight:600 }}>dní v rade</div>
+          </div>
+        </div>
+        {/* XP bar */}
+        <div style={{ marginTop: 16, background:'rgba(255,255,255,0.15)', borderRadius: 99, height: 8 }}>
+          <div style={{ width:`${Math.min(100,(xp/60)*100)}%`, height:'100%', borderRadius: 99,
+            background:'linear-gradient(90deg, #f9ca24, #f0932b)',
+            transition:'width .8s cubic-bezier(.32,.72,0,1)' }} />
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', marginTop: 6,
+          fontSize: 11, color:'rgba(255,255,255,0.4)', fontWeight:600 }}>
+          <span>{xp} XP</span><span>60 XP na ďalší level</span>
+        </div>
+      </div>
+
+      {/* Summary pills */}
+      <div style={{ display:'flex', gap: 10, flexWrap:'wrap', justifyContent:'center', marginBottom: 28 }}>
+        {STEPS.map(s => {
+          const v = answers[s.id];
+          const label = s.type==='yesno' ? (v==='yes'?'Áno':'Nie') :
+                        s.type==='pain' ? `Bolesť ${v}/10` :
+                        s.opts?.[v]?.l ?? '–';
+          const e = s.type==='emoji4' ? s.opts?.[v]?.e : s.emoji;
+          return (
+            <div key={s.id} style={{ background:'rgba(255,255,255,0.14)', borderRadius:12, padding:'8px 14px',
+              fontSize:13, color:'#fff', fontWeight:600, display:'flex', alignItems:'center', gap:7 }}>
+              <span>{e}</span>{label}
+            </div>
+          );
+        })}
+      </div>
+
+      <button onClick={onReset} style={{ border:'1.5px solid rgba(255,255,255,0.3)', background:'transparent',
+        borderRadius:16, padding:'14px 32px', color:'rgba(255,255,255,0.8)', fontSize:15, fontWeight:660,
+        cursor:'pointer', fontFamily:'inherit' }}>
+        Skúsiť znova
+      </button>
+    </div>
+  );
+}
+
+// ── Main app ──────────────────────────────────────────────────
+function App() {
+  const [stepIdx, setStepIdx] = React.useState(0);
+  const [answers, setAnswers] = React.useState({});
+  const [done, setDone] = React.useState(false);
+  const [xpFloats, setXpFloats] = React.useState([]);
+  const [painVal, setPainVal] = React.useState(3);
+  const [selected, setSelected] = React.useState(null); // selected option for current step
+  const [animKey, setAnimKey] = React.useState(0);
+
+  const step = STEPS[stepIdx];
+  const progress = stepIdx / STEPS.length;
+
+  const spawnXP = (pts) => {
+    const id = Date.now();
+    const pos = { x: 120 + Math.random()*80, y: 260 + Math.random()*40 };
+    setXpFloats(f => [...f, {id, pts, pos}]);
+    setTimeout(() => setXpFloats(f => f.filter(x=>x.id!==id)), 1000);
+  };
+
+  const advance = (val) => {
+    setAnswers(a => ({ ...a, [step.id]: val }));
+    spawnXP(10);
+    if (stepIdx >= STEPS.length - 1) { setTimeout(()=>setDone(true), 280); }
+    else {
+      setTimeout(() => {
+        setStepIdx(i => i + 1);
+        setSelected(null);
+        setPainVal(3);
+        setAnimKey(k => k + 1);
+      }, 200);
+    }
+  };
+
+  const reset = () => { setStepIdx(0); setAnswers({}); setDone(false); setSelected(null); setPainVal(3); setAnimKey(0); };
+
+  return (
+    <IOSDevice title="" dark={false}>
+      <div style={{ height:'100%', background: done ? '#1c3f6e' : step.bg,
+        transition:'background .4s ease', position:'relative', overflow:'hidden' }}>
+
+        {xpFloats.map(f => <XPFloat key={f.id} pts={f.pts} pos={f.pos} />)}
+
+        {done ? (
+          <DoneScreen answers={answers} onReset={reset} />
+        ) : (
+          <div key={animKey} className="card-enter" style={{ height:'100%', display:'flex', flexDirection:'column' }}>
+            {/* Progress bar */}
+            <div style={{ padding:'16px 24px 0' }}>
+              <div style={{ display:'flex', gap: 6 }}>
+                {STEPS.map((s, i) => (
+                  <div key={s.id} style={{ flex:1, height:4, borderRadius:99,
+                    background: i < stepIdx ? step.accent : i === stepIdx ? step.accent : 'rgba(0,0,0,0.12)',
+                    opacity: i <= stepIdx ? 1 : 0.35,
+                    transition:'background .3s ease' }} />
+                ))}
+              </div>
+              <div style={{ display:'flex', justifyContent:'flex-end', marginTop: 8,
+                fontSize:12, color:'rgba(0,0,0,0.35)', fontWeight:600 }}>
+                {stepIdx+1} / {STEPS.length}
+              </div>
+            </div>
+
+            {/* Step emoji */}
+            <div style={{ padding:'18px 24px 0', textAlign:'center' }}>
+              <div style={{ fontSize: 52 }}>{step.emoji}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color:'#1a1a2e', letterSpacing:-0.5,
+                marginTop: 8, marginBottom: 6, lineHeight:1.2 }}>{step.title}</div>
+              <div style={{ fontSize: 13.5, color:'rgba(0,0,0,0.45)', lineHeight:1.45 }}>{step.sub}</div>
+            </div>
+
+            {/* Content area */}
+            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
+              justifyContent:'center', padding:'0 24px 24px' }}>
+
+              {/* EMOJI 4 choices */}
+              {step.type === 'emoji4' && (
+                <div style={{ width:'100%', display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+                  {step.opts.map((o, i) => {
+                    const sel = selected === i;
+                    return (
+                      <button key={i} onClick={() => { setSelected(i); setTimeout(()=>advance(i), 220); }}
+                        style={{ border:`2px solid ${sel ? step.accent : 'transparent'}`,
+                          background: sel ? `${step.accent}18` : '#fff',
+                          borderRadius: 22, padding:'22px 0', cursor:'pointer', fontFamily:'inherit',
+                          display:'flex', flexDirection:'column', alignItems:'center', gap:10,
+                          boxShadow: sel ? `0 0 0 4px ${step.accent}28` : '0 2px 12px rgba(0,0,0,0.07)',
+                          transform: sel ? 'scale(0.96)' : 'scale(1)',
+                          transition:'all .15s ease' }}>
+                        <span style={{ fontSize: 38 }}>{o.e}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: sel ? step.accent : '#1a1a2e' }}>{o.l}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* YES / NO */}
+              {step.type === 'yesno' && (
+                <div style={{ width:'100%', display:'flex', gap:14 }}>
+                  {[{v:'yes',e:'✅',l:'Áno',col:'#c0622f'},{v:'no',e:'❌',l:'Nie',col:'#2e7d52'}].map(o => {
+                    const sel = selected === o.v;
+                    return (
+                      <button key={o.v} onClick={() => { setSelected(o.v); setTimeout(()=>advance(o.v), 220); }}
+                        style={{ flex:1, border:`2px solid ${sel ? o.col : 'transparent'}`,
+                          background: sel ? `${o.col}18` : '#fff',
+                          borderRadius: 22, padding:'30px 0', cursor:'pointer', fontFamily:'inherit',
+                          display:'flex', flexDirection:'column', alignItems:'center', gap:12,
+                          boxShadow: sel ? `0 0 0 4px ${o.col}28` : '0 2px 12px rgba(0,0,0,0.07)',
+                          transform: sel ? 'scale(0.96)' : 'scale(1)',
+                          transition:'all .15s ease' }}>
+                        <span style={{ fontSize: 44 }}>{o.e}</span>
+                        <span style={{ fontSize: 17, fontWeight: 800, color: sel ? o.col : '#1a1a2e' }}>{o.l}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* PAIN face + slider */}
+              {step.type === 'pain' && (
+                <div style={{ width:'100%', display:'flex', flexDirection:'column', alignItems:'center', gap:20 }}>
+                  <PainFace value={painVal} />
+                  <div style={{ fontSize: 42, fontWeight: 900, color: step.accent,
+                    fontVariantNumeric:'tabular-nums', letterSpacing:-1 }}>{painVal}</div>
+                  {/* custom slider */}
+                  <div style={{ width:'100%', position:'relative', height:48,
+                    display:'flex', alignItems:'center' }}>
+                    <div style={{ position:'absolute', left:0, right:0, height:10, borderRadius:99,
+                      background:'linear-gradient(90deg, #4CAF50, #FFC107, #FF5722)' }} />
+                    <div style={{ position:'absolute', left:`${painVal*10}%`, transform:'translateX(-50%)',
+                      width:32, height:32, borderRadius:'50%', background:'#fff',
+                      boxShadow:'0 3px 16px rgba(0,0,0,0.22)', border:'3px solid '+step.accent,
+                      transition:'left .08s ease' }} />
+                    <input type="range" min={0} max={10} step={1} value={painVal}
+                      onChange={e => setPainVal(Number(e.target.value))}
+                      style={{ position:'absolute', left:0, right:0, width:'100%', opacity:0, height:48, cursor:'pointer', margin:0 }} />
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', width:'100%',
+                    fontSize:12, fontWeight:600, color:'rgba(0,0,0,0.4)' }}>
+                    <span>0 – Žiadna</span><span>10 – Silná</span>
+                  </div>
+                  <button onClick={() => advance(painVal)}
+                    style={{ width:'100%', border:'none', borderRadius:18, padding:'17px',
+                      background:step.accent, color:'#fff', fontSize:17, fontWeight:760,
+                      cursor:'pointer', fontFamily:'inherit',
+                      boxShadow:`0 6px 22px ${step.accent}55` }}>
+                    Potvrdiť
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Skip */}
+            <div style={{ textAlign:'center', paddingBottom:24 }}>
+              <button onClick={() => advance(null)}
+                style={{ border:'none', background:'none', cursor:'pointer', fontFamily:'inherit',
+                  fontSize:13, fontWeight:600, color:'rgba(0,0,0,0.3)' }}>
+                Preskočiť
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </IOSDevice>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

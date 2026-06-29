@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Ranný check-in – fyzio</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  background: #0d1117; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+:root {
+  --ink:#1b2238; --text:#404a66; --muted:#8b91a7; --faint:#b3b8c8;
+  --bg:#f4f6f9; --line:#eaecf2; --chip:#f2f4f9;
+  --ok:#1f9e63; --ok-ink:#14794a; --ok-wash:#e8f6ee; --ok-line:#cdeadb;
+  --accent:#1c3f6e;
+  --accent-wash: color-mix(in srgb, #1c3f6e 9%, white);
+  --accent-ink: color-mix(in oklab, #1c3f6e, #0c1228 30%);
+  --accent-shadow: color-mix(in srgb, #1c3f6e 20%, transparent);
+}
+@keyframes fz { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform:none; } }
+@keyframes row { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform:none; } }
+@keyframes pop { 0%{transform:scale(.75)} 60%{transform:scale(1.07)} 100%{transform:scale(1)} }
+/* base states are always visible; animations only enhance when motion is allowed */
+.fz, .answer-row, .pop { opacity:1; }
+@media (prefers-reduced-motion: no-preference) {
+  .fz { animation: fz .3s cubic-bezier(.32,.72,0,1) both; }
+  .answer-row { animation: row .32s cubic-bezier(.32,.72,0,1) var(--d, 0s) both; }
+  .pop { animation: pop .42s ease both; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const Icon = ({ name, size=22, stroke="var(--ink)", sw=1.8, fill="none", style }) => {
+  const P = {
+    moon: <path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5Z"/>,
+    cup: <g><path d="M5 8h11v5a5 5 0 0 1-5 5H10a5 5 0 0 1-5-5V8Z"/><path d="M16 9h2.5a2.5 2.5 0 0 1 0 5H16"/><path d="M7.5 3.5c-.6.8-.6 1.7 0 2.5M11 3.5c-.6.8-.6 1.7 0 2.5"/></g>,
+    leaf: <g><path d="M11 20A7 7 0 0 1 4 13c0-5 5-9 16-9 0 9-4 12-9 12Z"/><path d="M4 20c4-5 7-7 12-8"/></g>,
+    activity: <path d="M3 12h4l2.5-7 5 14 2.5-7h4"/>,
+    flame: <path d="M12 3s5 4 5 9a5 5 0 0 1-10 0c0-1.6.7-3 1.5-4 .2 1 1 1.8 1.8 1.8C11 9.8 10 7 12 3Z"/>,
+    check: <path d="M5 12.5 10 17.5 19 6.5"/>,
+    sun: <g><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4 12H2M22 12h-2M5 5l1.6 1.6M17.4 17.4 19 19M19 5l-1.6 1.6M6.6 17.4 5 19"/></g>,
+    arrow: <path d="M5 12h13M13 6l6 6-6 6"/>,
+    zap: <path d="M13 2 4.5 13.5H12L11 22l8.5-11.5H13L13 2Z"/>,
+    pill: <g><path d="m10.5 20.5-7-7a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7Z"/><path d="m8.5 8.5 7 7"/></g>,
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke}
+    strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" style={style}>{P[name]}</svg>;
+};
+
+const painHue = (v) => `oklch(${(0.62 - v * 0.027).toFixed(3)} 0.11 258)`;
+const painLabel = (v) => v == null ? "Ťuknite na číslo" : v <= 2 ? "Žiadna alebo mierna" : v <= 5 ? "Mierna bolesť" : v <= 7 ? "Stredná bolesť" : "Silná bolesť";
+
+// best → worst, so the eye lands on the positive end first
+const STEPS = [
+  { id:"sleep", icon:"moon", label:"Spánok", q:"Ako ste spali?",
+    sub:"Kvalitný spánok urýchľuje regeneráciu.",
+    opts:[{l:"Výborne",d:4},{l:"Dobre",d:3},{l:"Slabo",d:2},{l:"Zle",d:1}] },
+  { id:"alcohol", icon:"cup", label:"Alkohol", q:"Pili ste včera alkohol?",
+    sub:"Alkohol môže spomaliť hojenie tkanív.", yesno:true },
+  { id:"food", icon:"leaf", label:"Strava", q:"Ako ste sa stravovali?",
+    sub:"Dostatok živín podporuje obnovu tela.",
+    opts:[{l:"Výborne",d:4},{l:"Dobre",d:3},{l:"Slabo",d:2},{l:"Zle",d:1}] },
+  { id:"stress", icon:"zap", label:"Stres", q:"Aká bola vaša hladina stresu?",
+    sub:"Chronický stres môže zvyšovať vnímanie bolesti.",
+    opts:[{l:"Žiadny",d:4},{l:"Mierny",d:3},{l:"Stredný",d:2},{l:"Silný",d:1}] },
+  { id:"meds", icon:"pill", label:"Lieky", q:"Brali ste lieky proti bolesti?",
+    sub:"Napríklad ibuprofén, paracetamol alebo iné analgetiká.", yesno:true,
+    yesLabel:"Áno, bral(a) som", noLabel:"Nie, nebral(a)" },
+  { id:"pain", icon:"activity", label:"Bolesť", q:"Aká je dnes vaša bolesť?",
+    sub:"Ťuknite na úroveň 0 – 10.", pain:true },
+];
+
+// ── big tappable answer row ───────────────────────────────────
+function AnswerRow({ idx, dots, label, selected, onClick }) {
+  const sel = selected;
+  return (
+    <button onClick={onClick} className="answer-row" style={{
+      ['--d']:`${idx*0.05}s`,
+      display:'flex', alignItems:'center', gap:15, width:'100%', height:64, padding:'0 18px',
+      border: sel ? 'none' : '1.5px solid var(--line)',
+      background: sel ? 'var(--accent)' : '#fff', borderRadius:18, cursor:'pointer', fontFamily:'inherit',
+      boxShadow: sel ? '0 8px 22px var(--accent-shadow)' : '0 1px 4px rgba(30,40,70,0.05)',
+      transition:'transform .14s ease, background .16s ease',
+      transform: sel ? 'scale(0.99)' : 'scale(1)' }}>
+      <div style={{ display:'flex', gap:4, width:48 }}>
+        {[1,2,3,4].map(d => (
+          <span key={d} style={{ width:8, height:8, borderRadius:'50%',
+            background: d <= dots ? (sel ? '#fff' : 'var(--accent)') : (sel ? 'rgba(255,255,255,0.28)' : '#dfe3ec') }} />
+        ))}
+      </div>
+      <span style={{ flex:1, textAlign:'left', fontSize:18, fontWeight:700,
+        color: sel ? '#fff' : 'var(--ink)' }}>{label}</span>
+      <Icon name="arrow" size={19} stroke={sel ? '#fff' : 'var(--faint)'} sw={2} />
+    </button>
+  );
+}
+
+function App() {
+  const [stepIdx, setStepIdx] = React.useState(0);
+  const [answers, setAnswers] = React.useState({});
+  const [done, setDone] = React.useState(false);
+  const [sel, setSel] = React.useState(null);
+  const [pain, setPain] = React.useState(null);
+  const [animKey, setAnimKey] = React.useState(0);
+
+  const step = STEPS[stepIdx];
+
+  const commit = (val) => {
+    setAnswers(a => ({ ...a, [step.id]: val }));
+    if (stepIdx >= STEPS.length - 1) setTimeout(()=>setDone(true), 230);
+    else setTimeout(() => { setStepIdx(i=>i+1); setSel(null); setPain(null); setAnimKey(k=>k+1); }, 210);
+  };
+  const reset = () => { setStepIdx(0); setAnswers({}); setDone(false); setSel(null); setPain(null); setAnimKey(0); };
+
+  return (
+    <IOSDevice title="">
+      <div style={{ height:'100%', background:'var(--bg)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        <div style={{ height:24, flexShrink:0 }} />
+
+        {done ? (
+          <DoneScreen onReset={reset} answers={answers} />
+        ) : (
+          <div key={animKey} style={{ flex:1, display:'flex', flexDirection:'column', minHeight:0 }}>
+
+            {/* ambient top: progress + tiny streak */}
+            <div style={{ padding:'4px 22px 0', flexShrink:0 }}>
+              <div style={{ display:'flex', gap:6, marginBottom:12 }}>
+                {STEPS.map((s,i) => (
+                  <div key={s.id} style={{ flex:1, height:5, borderRadius:99,
+                    background: i <= stepIdx ? 'var(--accent)' : 'var(--line)', transition:'background .3s ease' }} />
+                ))}
+              </div>
+            </div>
+
+            {/* HERO: question dominates */}
+            <div key={animKey+'q'} className="fz" style={{ padding:'24px 24px 0', flexShrink:0 }}>
+              <div style={{ fontSize:28, fontWeight:800, color:'var(--ink)', letterSpacing:-0.8, lineHeight:1.12 }}>{step.q}</div>
+              <div style={{ fontSize:15, color:'var(--muted)', lineHeight:1.45, marginTop:8 }}>{step.sub}</div>
+            </div>
+
+            {/* answers fill the space */}
+            <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', justifyContent:'flex-start', padding:'12px 24px' }}>
+              {step.opts && (
+                <div style={{ display:'flex', flexDirection:'column', gap:11 }}>
+                  {step.opts.map((o,i) => (
+                    <AnswerRow key={o.l} idx={i} dots={o.d} label={o.l} selected={sel===o.l}
+                      onClick={()=>{ setSel(o.l); setTimeout(()=>commit(o.l), 190); }} />
+                  ))}
+                </div>
+              )}
+
+              {step.yesno && (
+                <div style={{ display:'flex', flexDirection:'column', gap:11 }}>
+                  {[
+                    {l:'Nie', note: step.noLabel  || 'Žiadny alkohol'},
+                    {l:'Áno', note: step.yesLabel || 'Pil(a) som'}
+                  ].map((o,i) => {
+                    const s = sel === o.l;
+                    return (
+                      <button key={o.l} onClick={()=>{ setSel(o.l); setTimeout(()=>commit(o.l), 190); }}
+                        className="answer-row"
+                        style={{ ['--d']:`${i*0.05}s`,
+                          display:'flex', alignItems:'center', gap:15, width:'100%', height:70, padding:'0 20px',
+                          border: s ? 'none' : '1.5px solid var(--line)',
+                          background: s ? 'var(--accent)' : '#fff', borderRadius:18, cursor:'pointer', fontFamily:'inherit',
+                          boxShadow: s ? '0 8px 22px var(--accent-shadow)' : '0 1px 4px rgba(30,40,70,0.05)',
+                          transition:'all .16s ease' }}>
+                        <span style={{ flex:1, textAlign:'left' }}>
+                          <span style={{ display:'block', fontSize:19, fontWeight:760, color: s?'#fff':'var(--ink)' }}>{o.l}</span>
+                          <span style={{ display:'block', fontSize:13, color: s?'rgba(255,255,255,0.7)':'var(--faint)', marginTop:2 }}>{o.note}</span>
+                        </span>
+                        <Icon name="arrow" size={19} stroke={s?'#fff':'var(--faint)'} sw={2} />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {step.pain && (
+                <div className="fz">
+                  {/* big live readout — the focal feedback */}
+                  <div style={{ textAlign:'center', marginBottom:20 }}>
+                    <div style={{ fontSize:60, fontWeight:850, lineHeight:1, letterSpacing:-2,
+                      color: pain==null ? 'var(--faint)' : painHue(pain), fontVariantNumeric:'tabular-nums' }}>
+                      {pain==null ? '–' : pain}
+                    </div>
+                    <div style={{ fontSize:15, fontWeight:680, marginTop:8,
+                      color: pain==null ? 'var(--faint)' : painHue(pain) }}>{painLabel(pain)}</div>
+                  </div>
+                  <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'center', gap:9 }}>
+                    {Array.from({length:11}).map((_,n) => {
+                      const s = pain === n;
+                      return (
+                        <button key={n} onClick={()=>setPain(n)} style={{
+                          width:46, height:46, borderRadius:'50%', cursor:'pointer', fontFamily:'inherit',
+                          fontSize:17.5, fontWeight: s?780:640, flexShrink:0,
+                          border: s ? 'none' : '1.5px solid var(--line)',
+                          background: s ? painHue(n) : '#fff', color: s ? '#fff':'var(--muted)',
+                          transform: s ? 'scale(1.1)':'none', transition:'all .14s ease', padding:0 }}>{n}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* footer — one clear action only on pain step */}
+            <div style={{ flexShrink:0, padding:'8px 24px 26px' }}>
+              {step.pain ? (
+                <button onClick={()=>commit(pain)} disabled={pain==null}
+                  style={{ width:'100%', border:'none', borderRadius:16, padding:'17px',
+                    fontSize:16.5, fontWeight:680, fontFamily:'inherit', cursor: pain==null?'default':'pointer',
+                    color:'#fff', background:'var(--accent)', opacity: pain==null?0.4:1,
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                    boxShadow: pain==null?'none':'0 8px 22px var(--accent-shadow)',
+                    transition:'opacity .2s ease' }}>
+                  Dokončiť check-in
+                </button>
+              ) : (
+                <div style={{ textAlign:'center' }}>
+                  <button onClick={()=>commit(null)} style={{ border:'none', background:'none', cursor:'pointer',
+                    fontFamily:'inherit', fontSize:13.5, fontWeight:600, color:'var(--faint)', padding:8 }}>Preskočiť</button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </IOSDevice>
+  );
+}
+
+// ── done screen — quick & clean: "okay, ideme cvičiť" ───────────
+function DoneScreen({ onReset, answers }) {
+  return (
+    <div className="fz" style={{ flex:1, display:'flex', flexDirection:'column', padding:'0 26px 30px', overflow:'hidden' }}>
+
+      <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center' }}>
+
+        <div style={{ fontSize:34, fontWeight:830, color:'var(--ink)', letterSpacing:-1, lineHeight:1.05 }}>
+          Hotovo.<br/>Ideme cvičiť.
+        </div>
+        <div style={{ fontSize:15, color:'var(--muted)', lineHeight:1.5, marginTop:14, maxWidth:290 }}>
+          Vaše dnešné údaje sú zaznamenané a cvičenie je pripravené.
+        </div>
+      </div>
+
+      {/* CTA */}
+      <button onClick={onReset} style={{
+        width:'100%', border:'none', borderRadius:16, padding:'18px',
+        fontSize:17, fontWeight:720, fontFamily:'inherit', cursor:'pointer', color:'#fff',
+        background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', gap:9,
+        boxShadow:'0 10px 26px var(--accent-shadow)' }}>
+        Začať cvičenie <Icon name="arrow" size={20} stroke="#fff" sw={2.2} />
+      </button>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

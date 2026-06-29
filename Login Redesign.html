@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Login Redesign — fyzio</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const NAVY = "#1c3f6e";
+const NAVY2 = "#2a5298";
+const MUTED = "#8b91a7";
+const LINE = "#e8ecf4";
+const BG = "#f4f6f9";
+
+// Shared spark SVG icon
+const Spark = ({ size = 28, color = "#fff" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M12 4l1.6 4.9L18.5 10l-4.9 1.6L12 16l-1.6-4.4L5.5 10l4.9-1.1L12 4Z"
+      fill={color} />
+  </svg>
+);
+
+// Status bar mock
+const StatusBar = ({ dark = false }) => (
+  <div style={{ height: 50, display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "12px 22px 0", flexShrink: 0 }}>
+    <span style={{ fontSize: 15, fontWeight: 600, color: dark ? "#fff" : "#111", letterSpacing: -0.3 }}>9:41</span>
+    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+      {[3,2.5,2,1.5].map((h,i) => (
+        <div key={i} style={{ width: 3.5, height: h * 3.5, borderRadius: 1,
+          background: dark ? "rgba(255,255,255,0.9)" : "#111", alignSelf: "flex-end" }} />
+      ))}
+      <svg width="16" height="12" viewBox="0 0 16 12" style={{ marginLeft: 2 }}>
+        <path d="M8 2.4A9.4 9.4 0 0 1 14 4.8l1.2-1.4A11.4 11.4 0 0 0 8 1 11.4 11.4 0 0 0 2.8 3.4L4 4.8A9.4 9.4 0 0 1 8 2.4Z"
+          fill={dark ? "rgba(255,255,255,0.9)" : "#111"} />
+        <path d="M8 5.5a5.8 5.8 0 0 1 3.9 1.5l1.2-1.4A7.8 7.8 0 0 0 8 3.5a7.8 7.8 0 0 0-5.1 2.1l1.2 1.4A5.8 5.8 0 0 1 8 5.5Z"
+          fill={dark ? "rgba(255,255,255,0.9)" : "#111"} />
+        <circle cx="8" cy="10" r="1.5" fill={dark ? "#fff" : "#111"} />
+      </svg>
+      <div style={{ width: 25, height: 12, border: `1.5px solid ${dark ? "rgba(255,255,255,0.7)" : "#555"}`,
+        borderRadius: 3, padding: "1.5px", display: "flex", alignItems: "center" }}>
+        <div style={{ width: "75%", height: "100%", borderRadius: 1.5, background: dark ? "rgba(255,255,255,0.9)" : "#111" }} />
+      </div>
+    </div>
+  </div>
+);
+
+// Input field
+const Field = ({ label, type = "text", placeholder, dark = false }) => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+    <span style={{ fontSize: 12, fontWeight: 650, color: dark ? "rgba(255,255,255,0.55)" : MUTED,
+      textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</span>
+    <div style={{ height: 52, background: dark ? "rgba(255,255,255,0.08)" : "#fff",
+      borderRadius: 14, border: `1.5px solid ${dark ? "rgba(255,255,255,0.15)" : LINE}`,
+      display: "flex", alignItems: "center", padding: "0 16px",
+      fontSize: 15.5, color: dark ? "rgba(255,255,255,0.4)" : "#aab0c4" }}>
+      {placeholder}
+    </div>
+  </div>
+);
+
+// Code boxes
+const CodeBoxes = ({ dark = false }) => (
+  <div style={{ display: "flex", gap: 10 }}>
+    {["F","Y","Z","7","K","2"].map((c, i) => (
+      <div key={i} style={{ flex: 1, height: 60, borderRadius: 14,
+        background: dark ? "rgba(255,255,255,0.1)" : "rgba(28,63,110,0.06)",
+        border: `1.5px solid ${dark ? "rgba(255,255,255,0.2)" : "rgba(28,63,110,0.18)"}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 24, fontWeight: 700, color: dark ? "#fff" : NAVY }}>
+        {c}
+      </div>
+    ))}
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────
+// V1: Split hero — navy top, white bottom
+// ─────────────────────────────────────────────────────────────
+const V1 = ({ step = "creds" }) => (
+  <div style={{ width: 390, height: 844, background: "#fff", display: "flex", flexDirection: "column",
+    fontFamily: "'Inter', system-ui", overflow: "hidden", position: "relative" }}>
+    {/* Navy hero */}
+    <div style={{ background: `linear-gradient(160deg, ${NAVY2} 0%, ${NAVY} 100%)`, flexShrink: 0,
+      paddingBottom: 40, borderRadius: "0 0 40px 40px", position: "relative", zIndex: 2,
+      boxShadow: "0 12px 40px rgba(28,63,110,0.22)" }}>
+      <StatusBar dark />
+      <div style={{ padding: "22px 30px 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+        <div style={{ width: 64, height: 64, borderRadius: 20, background: "rgba(255,255,255,0.15)",
+          display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(8px)" }}>
+          <Spark size={34} color="#fff" />
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 34, fontWeight: 780, color: "#fff", letterSpacing: -1 }}>fyzio</div>
+          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", marginTop: 4, fontWeight: 450 }}>
+            Vaša rehabilitácia, krok za krokom.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* White form area */}
+    <div style={{ flex: 1, padding: "36px 28px 28px", display: "flex", flexDirection: "column", gap: 0 }}>
+      {step === "creds" ? (
+        <>
+          <div style={{ fontSize: 22, fontWeight: 740, color: "#0d1322", letterSpacing: -0.4, marginBottom: 6 }}>Prihláste sa</div>
+          <div style={{ fontSize: 14, color: MUTED, marginBottom: 28 }}>Zadajte e-mail a heslo k svojmu účtu.</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: "auto" }}>
+            <Field label="E-mail" placeholder="vas@email.sk" />
+            <Field label="Heslo" type="password" placeholder="••••••••" />
+          </div>
+          <div style={{ marginTop: 28 }}>
+            <div style={{ width: "100%", height: 54, borderRadius: 16, background: NAVY,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, fontWeight: 660, color: "#fff", boxShadow: "0 6px 20px rgba(28,63,110,0.3)" }}>
+              Pokračovať
+            </div>
+            <div style={{ textAlign: "center", marginTop: 16, fontSize: 13.5, color: MUTED }}>Zabudli ste heslo?</div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 22, fontWeight: 740, color: "#0d1322", letterSpacing: -0.4, marginBottom: 6 }}>Prístupový kód</div>
+          <div style={{ fontSize: 14, color: MUTED, marginBottom: 30 }}>Zadajte kód od fyzioterapeuta.</div>
+          <CodeBoxes />
+          <div style={{ textAlign: "center", marginTop: 20, fontSize: 13.5, color: NAVY, fontWeight: 600 }}>Použiť ukážkový kód</div>
+          <div style={{ marginTop: "auto", paddingTop: 28 }}>
+            <div style={{ width: "100%", height: 54, borderRadius: 16, background: NAVY,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, fontWeight: 660, color: "#fff" }}>Prihlásiť sa</div>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────
+// V2: Minimal white — logo-forward, Apple-inspired
+// ─────────────────────────────────────────────────────────────
+const V2 = ({ step = "creds" }) => (
+  <div style={{ width: 390, height: 844, background: "#fff", display: "flex", flexDirection: "column",
+    fontFamily: "'Inter', system-ui", overflow: "hidden" }}>
+    <StatusBar dark={false} />
+    <div style={{ flex: 1, padding: "0 30px 36px", display: "flex", flexDirection: "column" }}>
+      {/* Logo block */}
+      <div style={{ paddingTop: 48, paddingBottom: 44, display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+        <div style={{ width: 72, height: 72, borderRadius: 22, background: NAVY,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 8px 28px rgba(28,63,110,0.25)" }}>
+          <Spark size={38} color="#fff" />
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 30, fontWeight: 780, color: "#0d1322", letterSpacing: -0.8 }}>fyzio</div>
+          <div style={{ fontSize: 13.5, color: MUTED, marginTop: 4 }}>Vaša rehabilitácia, krok za krokom.</div>
+        </div>
+      </div>
+
+      {step === "creds" ? (
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <Field label="E-mail" placeholder="vas@email.sk" />
+            <Field label="Heslo" type="password" placeholder="••••••••" />
+          </div>
+          <div style={{ textAlign: "right", marginTop: 12, marginBottom: "auto" }}>
+            <span style={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>Zabudli ste heslo?</span>
+          </div>
+          <div style={{ paddingTop: 32 }}>
+            <div style={{ height: 54, borderRadius: 16, background: NAVY,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, fontWeight: 660, color: "#fff" }}>Pokračovať</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
+              marginTop: 20, fontSize: 12.5, color: MUTED }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3.5 19 6v6c0 4.5-3 7-7 8.5C8 19 5 16.5 5 12V6l7-2.5Z" stroke={MUTED} strokeWidth="1.8" fill="none"/></svg>
+              Bezpečné prepojenie s klinikou
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 16, fontWeight: 650, color: "#0d1322", marginBottom: 20, textAlign: "center" }}>Zadajte prístupový kód</div>
+          <CodeBoxes />
+          <div style={{ textAlign: "center", marginTop: 18, fontSize: 13.5, color: NAVY, fontWeight: 600 }}>Použiť ukážkový kód</div>
+          <div style={{ marginTop: "auto", paddingTop: 28 }}>
+            <div style={{ height: 54, borderRadius: 16, background: NAVY,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, fontWeight: 660, color: "#fff" }}>Prihlásiť sa</div>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────
+// V3: Full navy immersive — floating white card
+// ─────────────────────────────────────────────────────────────
+const V3 = ({ step = "creds" }) => (
+  <div style={{ width: 390, height: 844, background: `linear-gradient(175deg, ${NAVY2} 0%, ${NAVY} 100%)`,
+    display: "flex", flexDirection: "column", fontFamily: "'Inter', system-ui", overflow: "hidden",
+    position: "relative" }}>
+    <StatusBar dark />
+    {/* Top brand area */}
+    <div style={{ padding: "28px 30px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <Spark size={30} color="rgba(255,255,255,0.9)" />
+        <span style={{ fontSize: 28, fontWeight: 780, color: "#fff", letterSpacing: -0.8 }}>fyzio</span>
+      </div>
+      <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.55)", fontWeight: 450 }}>
+        Vaša rehabilitácia, krok za krokom.
+      </div>
+    </div>
+
+    {/* Floating white card */}
+    <div style={{ flex: 1, display: "flex", alignItems: "flex-end" }}>
+      <div style={{ width: "100%", background: "#fff", borderRadius: "32px 32px 0 0",
+        padding: "34px 28px 40px", boxShadow: "0 -16px 48px rgba(10,20,50,0.2)" }}>
+        {step === "creds" ? (
+          <>
+            <div style={{ fontSize: 22, fontWeight: 740, color: "#0d1322", marginBottom: 5 }}>Prihláste sa</div>
+            <div style={{ fontSize: 14, color: MUTED, marginBottom: 26 }}>Zadajte e-mail a heslo k svojmu účtu.</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 26 }}>
+              <Field label="E-mail" placeholder="vas@email.sk" />
+              <Field label="Heslo" type="password" placeholder="••••••••" />
+            </div>
+            <div style={{ height: 54, borderRadius: 16, background: NAVY,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, fontWeight: 660, color: "#fff", boxShadow: "0 6px 20px rgba(28,63,110,0.25)" }}>
+              Pokračovať
+            </div>
+            <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: MUTED }}>Zabudli ste heslo?</div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 22, fontWeight: 740, color: "#0d1322", marginBottom: 5 }}>Prístupový kód</div>
+            <div style={{ fontSize: 14, color: MUTED, marginBottom: 26 }}>Zadajte kód od fyzioterapeuta.</div>
+            <CodeBoxes />
+            <div style={{ textAlign: "center", marginTop: 18, fontSize: 13.5, color: NAVY, fontWeight: 600, marginBottom: 26 }}>Použiť ukážkový kód</div>
+            <div style={{ height: 54, borderRadius: 16, background: NAVY,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, fontWeight: 660, color: "#fff" }}>Prihlásiť sa</div>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────
+// V4: Soft card — warm light bg, elevated card
+// ─────────────────────────────────────────────────────────────
+const V4 = ({ step = "creds" }) => (
+  <div style={{ width: 390, height: 844, background: "#edf0f7",
+    display: "flex", flexDirection: "column", fontFamily: "'Inter', system-ui",
+    overflow: "hidden", alignItems: "center" }}>
+    <StatusBar dark={false} />
+    <div style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center",
+      justifyContent: "center", padding: "0 22px 24px" }}>
+      {/* Logo pill above card */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22 }}>
+        <div style={{ width: 46, height: 46, borderRadius: 15, background: NAVY,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 4px 14px rgba(28,63,110,0.28)" }}>
+          <Spark size={26} color="#fff" />
+        </div>
+        <span style={{ fontSize: 26, fontWeight: 780, color: "#0d1322", letterSpacing: -0.6 }}>fyzio</span>
+      </div>
+
+      {/* Card */}
+      <div style={{ width: "100%", background: "#fff", borderRadius: 28,
+        padding: "30px 26px 28px", boxShadow: "0 8px 40px rgba(28,40,90,0.10), 0 2px 8px rgba(28,40,90,0.06)" }}>
+        {step === "creds" ? (
+          <>
+            <div style={{ fontSize: 20, fontWeight: 730, color: "#0d1322", marginBottom: 4 }}>Prihláste sa</div>
+            <div style={{ fontSize: 13.5, color: MUTED, marginBottom: 22 }}>Zadajte e-mail a heslo k svojmu účtu pacienta.</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <Field label="E-mail" placeholder="vas@email.sk" />
+              <Field label="Heslo" type="password" placeholder="••••••••" />
+            </div>
+            <div style={{ textAlign: "right", marginTop: 12, marginBottom: 22 }}>
+              <span style={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>Zabudli ste heslo?</span>
+            </div>
+            <div style={{ height: 54, borderRadius: 16, background: NAVY,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, fontWeight: 660, color: "#fff", boxShadow: "0 4px 16px rgba(28,63,110,0.22)" }}>
+              Pokračovať
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 20, fontWeight: 730, color: "#0d1322", marginBottom: 4 }}>Prístupový kód</div>
+            <div style={{ fontSize: 13.5, color: MUTED, marginBottom: 22 }}>Zadajte 6-miestny kód od fyzioterapeuta.</div>
+            <CodeBoxes />
+            <div style={{ textAlign: "center", marginTop: 16, marginBottom: 24, fontSize: 13.5, color: NAVY, fontWeight: 600 }}>Použiť ukážkový kód</div>
+            <div style={{ height: 54, borderRadius: 16, background: NAVY,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, fontWeight: 660, color: "#fff" }}>Prihlásiť sa</div>
+          </>
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 18, fontSize: 12.5, color: MUTED }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3.5 19 6v6c0 4.5-3 7-7 8.5C8 19 5 16.5 5 12V6l7-2.5Z" stroke={MUTED} strokeWidth="1.8" fill="none"/></svg>
+        Bezpečné prepojenie s klinikou
+      </div>
+    </div>
+  </div>
+);
+
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="step1" title="Krok 1 — Prihlásenie (e-mail + heslo)">
+        <DCArtboard id="v1a" label="V1 · Split hero" width={390} height={844}><V1 step="creds"/></DCArtboard>
+        <DCArtboard id="v2a" label="V2 · Minimálny biely" width={390} height={844}><V2 step="creds"/></DCArtboard>
+        <DCArtboard id="v3a" label="V3 · Tmavomodrý imerzívny" width={390} height={844}><V3 step="creds"/></DCArtboard>
+        <DCArtboard id="v4a" label="V4 · Soft karta" width={390} height={844}><V4 step="creds"/></DCArtboard>
+      </DCSection>
+      <DCSection id="step2" title="Krok 2 — Prístupový kód">
+        <DCArtboard id="v1b" label="V1 · Split hero" width={390} height={844}><V1 step="code"/></DCArtboard>
+        <DCArtboard id="v2b" label="V2 · Minimálny biely" width={390} height={844}><V2 step="code"/></DCArtboard>
+        <DCArtboard id="v3b" label="V3 · Tmavomodrý imerzívny" width={390} height={844}><V3 step="code"/></DCArtboard>
+        <DCArtboard id="v4b" label="V4 · Soft karta" width={390} height={844}><V4 step="code"/></DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

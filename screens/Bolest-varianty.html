@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>fyzio — varianty „Ako je dnes vaša bolesť?"</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  :root {
+    --ink: #1b2238; --text: #404a66; --muted: #8b91a7; --faint: #b3b8c8;
+    --line: #eaecf2; --chip: #f2f4f9;
+    --accent: #3b6fe0;
+    --accent-wash: color-mix(in srgb, var(--accent) 9%, white);
+    --accent-ink: color-mix(in oklab, var(--accent), #0c1228 30%);
+    --ok: #2f9e6f;
+  }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: radial-gradient(120% 90% at 50% 0%, #eef1f6 0%, #e4e8f0 100%);
+    color: var(--ink); -webkit-font-smoothing: antialiased; min-height: 100vh;
+    padding: 48px 24px 80px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  .page-head { text-align: center; margin-bottom: 8px; }
+  .page-head h1 { font-size: 30px; font-weight: 780; letter-spacing: -0.6px; margin: 0; }
+  .page-head p { font-size: 15px; color: var(--muted); margin: 8px 0 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 26px; margin-top: 40px; }
+  .variant { display: flex; flex-direction: column; gap: 14px; }
+  .v-head { display: flex; align-items: center; gap: 10px; }
+  .v-tag { font-size: 12px; font-weight: 750; color: #fff; background: var(--ink); border-radius: 8px;
+    padding: 4px 9px; letter-spacing: 0.3px; }
+  .v-title { font-size: 15.5px; font-weight: 680; color: var(--ink); white-space: nowrap; }
+  .v-sub { font-size: 13px; color: var(--muted); margin-top: -8px; line-height: 1.45; }
+  .card { background: #fff; border-radius: 22px; padding: 18px; border: 1px solid var(--line);
+    box-shadow: 0 4px 18px rgba(30,40,70,0.06); }
+  .ch-head { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
+  .ch-ic { width: 32px; height: 32px; border-radius: 10px; background: var(--accent-wash);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .ch-title { font-size: 16px; font-weight: 680; color: var(--ink); line-height: 1.2; }
+  .ch-desc { font-size: 13px; color: var(--muted); margin: 0 0 16px; padding-left: 41px; line-height: 1.4; }
+  button { font-family: inherit; }
+  .footer-note { text-align: center; font-size: 13px; color: var(--muted); margin-top: 48px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-head">
+    <h1>„Ako je dnes vaša bolesť?"</h1>
+    <p>Päť variantov denného hodnotenia bolesti — vyberte si jeden a dajte mi vedieť číslo.</p>
+  </div>
+  <div id="root" class="grid"></div>
+  <div class="footer-note">fyzio · varianty komponentu · všetky sú interaktívne — vyskúšajte ich</div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<template id="__bundler_thumbnail">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#3b6fe0"/>
+    <path d="M22 64h56M30 64a8 8 0 0 1 16 0M54 64a8 8 0 0 1 16 0" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/>
+  </svg>
+</template>
+
+<script type="text/babel" data-presets="react">
+const { useState } = React;
+
+// pain → color: green (0) → amber (5) → red (10)
+const hue = (v) => `oklch(0.68 0.14 ${145 - v * 11})`;
+const labelFor = (v) => v == null ? "Vyberte hodnotu"
+  : v <= 2 ? "Žiadna alebo mierna" : v <= 5 ? "Mierna bolesť"
+  : v <= 7 ? "Stredná bolesť" : "Silná bolesť";
+
+function Activity({ size = 18, stroke = "var(--accent)" }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke}
+    strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12h4l2.5-7 5 14 2.5-7h4"/></svg>;
+}
+function Check({ size = 16, stroke = "var(--ok)" }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke}
+    strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>;
+}
+
+function ChHead({ desc }) {
+  return (
+    <React.Fragment>
+      <div className="ch-head">
+        <div className="ch-ic"><Activity /></div>
+        <div className="ch-title">Ako je dnes vaša bolesť?</div>
+      </div>
+      <div className="ch-desc">{desc}</div>
+    </React.Fragment>
+  );
+}
+
+function SaveRow({ value, children }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, minHeight: 36 }}>
+      <span style={{ fontSize: 13.5, color: value == null ? "var(--faint)" : "var(--text)", fontWeight: 550 }}>{labelFor(value)}</span>
+      {children}
+    </div>
+  );
+}
+function SaveBtn({ disabled }) {
+  return <button disabled={disabled} style={{ border: "none", cursor: disabled ? "default" : "pointer",
+    background: disabled ? "color-mix(in srgb, var(--accent) 42%, white)" : "var(--accent)", color: "#fff",
+    borderRadius: 11, padding: "9px 18px", fontSize: 14, fontWeight: 620 }}>Uložiť</button>;
+}
+
+/* ── V1 — Číselná škála 0–10 (pôvodná, vyladená) ───────────── */
+function V1() {
+  const [v, setV] = useState(null);
+  return (
+    <div className="card">
+      <ChHead desc="0 znamená žiadnu bolesť, 10 najsilnejšiu." />
+      <div style={{ display: "flex", gap: 6, justifyContent: "space-between" }}>
+        {Array.from({ length: 11 }).map((_, n) => {
+          const sel = v === n;
+          return <button key={n} onClick={() => setV(n)} style={{ flex: 1, height: 40, borderRadius: 11, cursor: "pointer",
+            fontSize: 14, fontWeight: sel ? 700 : 550, border: sel ? "none" : "1.5px solid var(--line)",
+            background: sel ? hue(n) : "#fff", color: sel ? "#fff" : "var(--muted)",
+            boxShadow: sel ? `0 4px 12px ${hue(n)}40` : "none", transition: "all .14s ease", padding: 0 }}>{n}</button>;
+        })}
+      </div>
+      <SaveRow value={v}>{v != null && <SaveBtn />}</SaveRow>
+    </div>
+  );
+}
+
+/* ── V2 — Posuvník s veľkým číslom ─────────────────────────── */
+function V2() {
+  const [v, setV] = useState(0);
+  const [touched, setTouched] = useState(false);
+  return (
+    <div className="card">
+      <ChHead desc="Potiahnite posuvník na úroveň vašej bolesti." />
+      <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 18 }}>
+        <div style={{ width: 78, height: 78, borderRadius: 20, flexShrink: 0, background: hue(v),
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          color: "#fff", boxShadow: `0 8px 22px ${hue(v)}55`, transition: "all .2s ease" }}>
+          <span style={{ fontSize: 32, fontWeight: 780, lineHeight: 1 }}>{v}</span>
+          <span style={{ fontSize: 10.5, fontWeight: 600, opacity: 0.85, marginTop: 2 }}>z 10</span>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 680, color: "var(--ink)" }}>{labelFor(v)}</div>
+          <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3 }}>{touched ? "Hodnotenie zaznamenané" : "Posuňte pre zmenu"}</div>
+        </div>
+      </div>
+      <input type="range" min="0" max="10" step="1" value={v}
+        onChange={(e) => { setV(+e.target.value); setTouched(true); }}
+        style={{ width: "100%", height: 8, borderRadius: 6, appearance: "none", WebkitAppearance: "none", cursor: "pointer",
+          background: `linear-gradient(90deg, ${hue(0)}, ${hue(5)}, ${hue(10)})`, outline: "none" }} />
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 11.5, color: "var(--faint)", fontWeight: 600 }}>
+        <span>Žiadna</span><span>Silná</span>
+      </div>
+      <SaveRow value={touched ? v : null}>{touched && <SaveBtn />}</SaveRow>
+      <style>{`
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%;
+          background: #fff; border: 3px solid ${hue(v)}; box-shadow: 0 2px 8px rgba(30,40,70,0.25); cursor: pointer; }
+        input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%;
+          background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 8px rgba(30,40,70,0.25); cursor: pointer; }
+      `}</style>
+    </div>
+  );
+}
+
+/* ── V3 — Kategórie (Žiadna / Mierna / Stredná / Silná) ────── */
+function V3() {
+  const cats = [
+    { k: 0, t: "Žiadna", d: "Bez bolesti", r: "0–1" },
+    { k: 3, t: "Mierna", d: "Cítim ju, neobmedzuje ma", r: "2–4" },
+    { k: 6, t: "Stredná", d: "Ruší ma pri činnostiach", r: "5–7" },
+    { k: 9, t: "Silná", d: "Ťažko sa sústredím", r: "8–10" },
+  ];
+  const [sel, setSel] = useState(null);
+  return (
+    <div className="card">
+      <ChHead desc="Vyberte úroveň, ktorá najlepšie vystihuje dnešok." />
+      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+        {cats.map((c) => {
+          const on = sel === c.k;
+          return (
+            <button key={c.k} onClick={() => setSel(c.k)} style={{ display: "flex", alignItems: "center", gap: 13,
+              textAlign: "left", cursor: "pointer", padding: "13px 14px", borderRadius: 15,
+              border: on ? `1.5px solid ${hue(c.k)}` : "1.5px solid var(--line)",
+              background: on ? `color-mix(in srgb, ${hue(c.k)} 10%, white)` : "#fff", transition: "all .15s ease" }}>
+              <span style={{ width: 14, height: 14, borderRadius: "50%", background: hue(c.k), flexShrink: 0,
+                boxShadow: on ? `0 0 0 4px color-mix(in srgb, ${hue(c.k)} 22%, white)` : "none" }} />
+              <span style={{ flex: 1 }}>
+                <span style={{ display: "block", fontSize: 15, fontWeight: 680, color: "var(--ink)" }}>{c.t}</span>
+                <span style={{ display: "block", fontSize: 12.5, color: "var(--muted)", marginTop: 1 }}>{c.d}</span>
+              </span>
+              <span style={{ fontSize: 12.5, fontWeight: 650, color: on ? hue(c.k) : "var(--faint)" }}>{c.r}</span>
+            </button>
+          );
+        })}
+      </div>
+      <SaveRow value={sel}>{sel != null && <SaveBtn />}</SaveRow>
+    </div>
+  );
+}
+
+/* ── V4 — Kruhový stepper ─────────────────────────────────── */
+function V4() {
+  const [v, setV] = useState(0);
+  const [touched, setTouched] = useState(false);
+  const r = 52, sw = 9, c = 2 * Math.PI * r;
+  const bump = (d) => { setV((x) => Math.max(0, Math.min(10, x + d))); setTouched(true); };
+  const StepBtn = ({ label, onClick }) => (
+    <button onClick={onClick} style={{ width: 52, height: 52, borderRadius: "50%", cursor: "pointer",
+      border: "1.5px solid var(--line)", background: "#fff", fontSize: 24, fontWeight: 600, color: "var(--text)",
+      display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>{label}</button>
+  );
+  return (
+    <div className="card">
+      <ChHead desc="Dolaďte presnú úroveň tlačidlami − a +." />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 22, padding: "6px 0 4px" }}>
+        <StepBtn label="−" onClick={() => bump(-1)} />
+        <div style={{ position: "relative", width: 130, height: 130 }}>
+          <svg width="130" height="130" style={{ transform: "rotate(-90deg)" }}>
+            <circle cx="65" cy="65" r={r} fill="none" stroke="var(--chip)" strokeWidth={sw} />
+            <circle cx="65" cy="65" r={r} fill="none" stroke={hue(v)} strokeWidth={sw} strokeLinecap="round"
+              strokeDasharray={c} strokeDashoffset={c * (1 - v / 10)} style={{ transition: "all .3s ease" }} />
+          </svg>
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: 40, fontWeight: 780, color: "var(--ink)", lineHeight: 1 }}>{v}</span>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", marginTop: 2 }}>z 10</span>
+          </div>
+        </div>
+        <StepBtn label="+" onClick={() => bump(1)} />
+      </div>
+      <SaveRow value={touched ? v : null}>{touched && <SaveBtn />}</SaveRow>
+    </div>
+  );
+}
+
+/* ── V5 — Tepelná škála (stĺpce) ──────────────────────────── */
+function V5() {
+  const [v, setV] = useState(null);
+  return (
+    <div className="card">
+      <ChHead desc="Ťuknite na stĺpec — vyššie znamená silnejšiu bolesť." />
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: 92 }}>
+        {Array.from({ length: 11 }).map((_, n) => {
+          const on = v != null && n <= v;
+          const h = 34 + n * 5.4;
+          return <button key={n} onClick={() => setV(n)} aria-label={String(n)}
+            style={{ flex: 1, height: h, borderRadius: 7, cursor: "pointer", border: "none", padding: 0,
+              background: on ? hue(n) : "var(--chip)",
+              boxShadow: v === n ? `0 4px 12px ${hue(n)}55` : "none", transition: "all .14s ease" }} />;
+        })}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 7 }}>
+        {Array.from({ length: 11 }).map((_, n) =>
+          <span key={n} style={{ flex: 1, textAlign: "center", fontSize: 10.5, fontWeight: 600,
+            color: v === n ? "var(--ink)" : "var(--faint)" }}>{n}</span>)}
+      </div>
+      <SaveRow value={v}>{v != null && <SaveBtn />}</SaveRow>
+    </div>
+  );
+}
+
+const VARIANTS = [
+  { tag: "V1", title: "Číselná škála 0–10", sub: "Kompaktný riadok čísel s farebným kódovaním. Rýchle a presné.", C: V1 },
+  { tag: "V2", title: "Posuvník", sub: "Plynulé potiahnutie s veľkým farebným číslom. Hravé a názorné.", C: V2 },
+  { tag: "V3", title: "Kategórie", sub: "Štyri zrozumiteľné úrovne s popisom. Najmenej rozhodovania.", C: V3 },
+  { tag: "V4", title: "Kruhový stepper", sub: "Tlačidlá − / + okolo kruhu. Dobré pre obmedzenú pohyblivosť.", C: V4 },
+  { tag: "V5", title: "Tepelná škála", sub: "Stúpajúce stĺpce ako teplomer. Veľmi vizuálne.", C: V5 },
+];
+
+function Page() {
+  return VARIANTS.map((v) => (
+    <div key={v.tag} className="variant">
+      <div className="v-head"><span className="v-tag">{v.tag}</span><span className="v-title">{v.title}</span></div>
+      <div className="v-sub">{v.sub}</div>
+      <v.C />
+    </div>
+  ));
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Page />);
+</script>
+</body>
+</html>
