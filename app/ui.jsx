@@ -5,52 +5,73 @@
 const TweakCtx = React.createContext({});
 const useT = () => React.useContext(TweakCtx);
 
-// ── Exercise media placeholder ───────────────────────────────
-function VideoMedia({ style, label = "video cviku", rounded = 20, playing = false, big = false }) {
-  const t = useT();
-  const mode = t.imagery || "striped";
+// ── Exercise media: real video in the player, poster in thumbnails ──
+const EX_VIDEO = (window.__resources && window.__resources.exVid) || "media/cvik-zapastie.mp4";
+const EX_POSTER = (window.__resources && window.__resources.exPos) || "media/cvik-poster.png";
+
+function VideoMedia({ style, label = "video cviku", rounded = 20, playing = false, big = false,
+  muted = true, src = EX_VIDEO, poster = EX_POSTER, onProgress, controlsRef }) {
   const r = rounded;
-  if (mode === "abstract") {
+  const vref = React.useRef(null);
+  const [loaded, setLoaded] = React.useState(false);
+
+  // big player follows the `playing` prop — plays ONLY while the detail is open
+  React.useEffect(() => {
+    if (!big) return;
+    const v = vref.current; if (!v) return;
+    if (playing) { const p = v.play(); if (p && p.catch) p.catch(() => {}); }
+    else v.pause();
+  }, [playing, big]);
+
+  // reflect mute state onto the element (React's muted attr alone is unreliable);
+  // on unmute set full volume and (re)start playback to satisfy the gesture
+  React.useEffect(() => {
+    if (!big) return;
+    const v = vref.current; if (!v) return;
+    v.muted = muted;
+    if (!muted) { v.volume = 1; const p = v.play(); if (p && p.catch) p.catch(() => {}); }
+  }, [muted, big]);
+
+  // expose a seek() control + report progress to the parent
+  React.useEffect(() => {
+    if (!big) return;
+    if (controlsRef) controlsRef.current = {
+      seek: (frac) => {
+        const v = vref.current; if (!v) return;
+        const d = v.duration;
+        if (!d || isNaN(d)) return;
+        v.currentTime = Math.max(0, Math.min(1, frac)) * d;
+      },
+    };
+  }, [big, controlsRef]);
+
+  // pause on unmount so nothing keeps playing in the background
+  React.useEffect(() => () => { if (vref.current) vref.current.pause(); }, []);
+
+  if (big) {
+    const report = () => { const v = vref.current; if (v && onProgress) onProgress(v.currentTime || 0, v.duration || 0); };
     return (
-      <div style={{
-        position: "relative", borderRadius: r, overflow: "hidden",
-        background: "linear-gradient(150deg, var(--accent-wash) 0%, #fff 55%, var(--accent-wash) 100%)",
-        ...style,
-      }}>
-        <div style={{ position: "absolute", width: "60%", height: "55%", left: "-10%", top: "12%",
-          background: "radial-gradient(circle, var(--accent-soft) 0%, transparent 70%)" }} />
-        <div style={{ position: "absolute", width: "55%", height: "55%", right: "-8%", bottom: "8%",
-          background: "radial-gradient(circle, var(--accent-soft2) 0%, transparent 70%)" }} />
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ width: big ? 64 : 38, height: big ? 64 : 38, borderRadius: "50%",
-            background: "#fff",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 6px 18px rgba(40,60,120,0.14)" }}>
-            <Icon name={playing ? "pause" : "play"} size={big ? 26 : 16} stroke="var(--accent)" />
-          </div>
-        </div>
+      <div style={{ position: "relative", borderRadius: r, overflow: "hidden", background: "#0c1020", ...style }}>
+        {!loaded && <div className="fz-skeleton" style={{ position: "absolute", inset: 0, zIndex: 1 }} />}
+        <video ref={vref} src={src} poster={poster} muted={muted} loop playsInline preload="auto"
+          controls={false} disablePictureInPicture disableRemotePlayback
+          controlsList="nodownload noplaybackrate noremoteplayback nofullscreen"
+          x-webkit-airplay="deny"
+          onLoadedData={() => setLoaded(true)}
+          onTimeUpdate={report} onLoadedMetadata={report}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
+            opacity: loaded ? 1 : 0, transition: "opacity .4s ease" }} />
       </div>
     );
   }
-  // striped
+
+  // thumbnail: poster image with shimmer skeleton until it loads
   return (
-    <div style={{
-      position: "relative", borderRadius: r, overflow: "hidden",
-      background: "#eef1f6",
-      backgroundImage: "repeating-linear-gradient(135deg, rgba(120,132,165,0.10) 0 8px, transparent 8px 16px)",
-      border: "1px solid var(--line)",
-      ...style,
-    }}>
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", gap: big ? 12 : 6 }}>
-        <div style={{ width: big ? 60 : 34, height: big ? 60 : 34, borderRadius: "50%",
-          background: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 4px 12px rgba(40,60,120,0.10)" }}>
-          <Icon name={playing ? "pause" : "play"} size={big ? 24 : 15} stroke="var(--accent)" />
-        </div>
-        <span style={{ fontFamily: "var(--mono)", fontSize: big ? 12 : 9.5, letterSpacing: 0.4,
-          color: "#9aa1b6", textTransform: "uppercase" }}>{label}</span>
-      </div>
+    <div style={{ position: "relative", borderRadius: r, overflow: "hidden", background: "#eef1f6", ...style }}>
+      {!loaded && <div className="fz-skeleton" style={{ position: "absolute", inset: 0, zIndex: 1 }} />}
+      <img src={poster} alt={label || "cvik"} onLoad={() => setLoaded(true)}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
+          opacity: loaded ? 1 : 0, transition: "opacity .4s ease" }} />
     </div>
   );
 }
@@ -212,7 +233,7 @@ function Sheet({ open, onClose, children, height = "auto" }) {
         background: "#fff", borderRadius: "26px 26px 0 0",
         transform: open ? "translateY(0)" : "translateY(100%)",
         transition: "transform .32s cubic-bezier(.32,.72,0,1)",
-        boxShadow: "0 -10px 40px rgba(20,28,55,0.18)",
+        boxShadow: open ? "0 -10px 40px rgba(20,28,55,0.18)" : "none",
         display: "flex", flexDirection: "column",
         paddingBottom: "calc(18px + env(safe-area-inset-bottom))" }}>
         <div style={{ flexShrink: 0, width: 38, height: 5, borderRadius: 3, background: "var(--line)", margin: "10px auto 12px" }} />

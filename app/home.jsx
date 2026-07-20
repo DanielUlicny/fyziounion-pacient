@@ -85,7 +85,8 @@ function ExerciseCard({ ex, done, seriesDone, onAddSeries, onOpen, tour, onMarkD
   const onPtrUp = () => { if (!swipe.current.active) return; swipe.current.active = false; const dx = swipe.current.dx; setOffset(0); if (!swipe.current.moved) { onOpen(); return; } if (dx < -60) { onMarkDone?.(); } else if (dx > 60 && done) { onUndo?.(); } };
   const d = t.density || "regular";
   const pad = d === "compact" ? 12 : d === "comfy" ? 18 : 15;
-  const thumbW = d === "compact" ? 48 : d === "comfy" ? 64 : 56;
+  const thumbW = d === "compact" ? 50 : d === "comfy" ? 64 : 57;
+  const thumbH = d === "compact" ? 84 : d === "comfy" ? 108 : 96;
   const minH = d === "compact" ? 108 : d === "comfy" ? 144 : 126;
   const partial = seriesDone > 0 && !done;
   return (
@@ -98,7 +99,7 @@ function ExerciseCard({ ex, done, seriesDone, onAddSeries, onOpen, tour, onMarkD
         transform: `translateX(${offset}px)`,
         transition: offset === 0 ? "transform .22s ease, border-color .25s ease" : "none",
         touchAction: "pan-y", userSelect: "none" }}>
-      <VideoMedia style={{ width: thumbW, alignSelf: "stretch", flexShrink: 0 }} rounded={14} label="cvik" />
+      <VideoMedia src={ex.video} poster={ex.poster} style={{ width: thumbW, height: thumbH, alignSelf: "center", flexShrink: 0 }} rounded={14} label="cvik" />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <Marquee text={ex.name} style={{ fontSize: d === "compact" ? 17 : 18.5, fontWeight: 720,
           color: "var(--ink)", letterSpacing: -0.3, lineHeight: 1.2 }} />
@@ -130,7 +131,7 @@ function ExerciseCard({ ex, done, seriesDone, onAddSeries, onOpen, tour, onMarkD
 }
 
 // ── Pain check-in helpers ────────────────────────────────────
-const painHue = (v) => `oklch(${(0.62 - v * 0.027).toFixed(3)} 0.11 258)`;
+const painHue = (v) => "var(--accent)";
 const painLabel = (v) => v == null ? "Vyberte úroveň" : v <= 2 ? "Žiadna alebo mierna" : v <= 5 ? "Mierna bolesť" : v <= 7 ? "Stredná bolesť" : "Silná bolesť";
 
 // ── V1: čísla — numeric button grid ─────────────────────────
@@ -146,7 +147,7 @@ function PainNumbers({ value, onChange }) {
             border: sel ? "none" : "1.5px solid var(--line)",
             background: sel ? painHue(n) : "var(--chip)",
             color: sel ? "#fff" : "var(--muted)",
-            boxShadow: sel ? `0 4px 14px ${painHue(n)}50` : "none",
+            boxShadow: sel ? "0 4px 14px var(--accent-shadow)" : "none",
             transform: sel ? "scale(1.08)" : "none",
             transition: "all .14s ease", padding: 0
           }}>{n}</button>
@@ -247,43 +248,70 @@ function PainZones({ value, onChange }) {
   );
 }
 
-// ── Pain check-in ────────────────────────────────────────────
+// ── Pain check-in (Euneo-style card) ─────────────────────────
 function PainCheckIn({ value, saved, onChange, onSave, bare }) {
-  const t = useT();
-  const style = t.painStyle || "čísla";
   const body = (
     <React.Fragment>
-      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 3 }}>
-        <div style={{ width: 32, height: 32, borderRadius: 10, background: "var(--accent-wash)",
-          display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Icon name="activity" size={18} stroke="var(--accent)" />
-        </div>
-        <div style={{ fontSize: 16.5, fontWeight: 680, color: "var(--ink)" }}>Aká je dnes vaša bolesť?</div>
+      <div style={{ fontSize: 18, fontWeight: 760, color: "var(--ink)", letterSpacing: -0.3, lineHeight: 1.25 }}>
+        Aká je dnes vaša bolesť?
       </div>
-      <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16, paddingLeft: 41 }}>
-        0 znamená žiadnu bolesť, 10 najsilnejšiu.
+      <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 6 }}>
+        0 = žiadna bolesť · 10 = najsilnejšia
       </div>
-      {style === "čísla"  && <PainNumbers value={value} onChange={onChange} />}
-      {style === "slider" && <PainSlider  value={value} onChange={onChange} />}
-      {style === "zóny"   && <PainZones   value={value} onChange={onChange} />}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, minHeight: 36 }}>
-        <span style={{ fontSize: 13.5, color: value == null ? "var(--faint)" : "var(--text)", fontWeight: 550 }}>{painLabel(value)}</span>
-        {value != null && (
-          saved ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13.5, fontWeight: 600, color: "var(--ok)" }}>
-              <Icon name="check" size={16} stroke="var(--ok)" sw={2.4} /> Uložené
-            </span>
-          ) : (
-            <button onClick={onSave} style={{ border: "none", cursor: "pointer", fontFamily: "inherit",
-              background: "var(--accent)", color: "#fff", borderRadius: 11, padding: "9px 18px", fontSize: 14, fontWeight: 620 }}>Uložiť</button>
-          )
+
+      {/* big Euneo-style readout */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, margin: "16px 0 4px" }}>
+        <span style={{ fontSize: 46, fontWeight: 800, lineHeight: 1, letterSpacing: -1.5,
+          color: value == null ? "var(--faint)" : painHue(value), fontVariantNumeric: "tabular-nums" }}>
+          {value == null ? "–" : value}
+        </span>
+        <span style={{ fontSize: 15, fontWeight: 650, color: value == null ? "var(--faint)" : "var(--text)" }}>
+          {painLabel(value)}
+        </span>
+      </div>
+
+      {/* number circles — big, wrap to two rows (Euneo touch targets) */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+        {Array.from({ length: 11 }).map((_, n) => {
+          const sel = value === n;
+          return (
+            <button key={n} onClick={() => onChange(n)} style={{
+              width: "calc((100% - 40px) / 6)", height: 44, borderRadius: 14, cursor: "pointer",
+              fontFamily: "inherit", fontSize: 16, fontWeight: sel ? 760 : 560,
+              border: sel ? "none" : "1.5px solid var(--line)",
+              background: sel ? painHue(n) : "#fff",
+              color: sel ? "#fff" : "var(--text)",
+              boxShadow: sel ? "0 4px 14px var(--accent-shadow)" : "none",
+              transition: "background .14s ease, color .14s ease, box-shadow .14s ease", padding: 0
+            }}>{n}</button>
+          );
+        })}
+      </div>
+
+      {/* save action (Euneo full-width) */}
+      <div style={{ marginTop: 16 }}>
+        {saved ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+            height: 48, borderRadius: 15, background: "var(--ok-wash)",
+            fontSize: 15, fontWeight: 680, color: "var(--ok-ink)" }}>
+            <Icon name="check" size={18} stroke="var(--ok)" sw={2.6} /> Uložené na dnes
+          </div>
+        ) : (
+          <button onClick={onSave} disabled={value == null} style={{ width: "100%", height: 48, border: "none",
+            borderRadius: 15, cursor: value == null ? "default" : "pointer", fontFamily: "inherit",
+            fontSize: 15.5, fontWeight: 680,
+            background: value == null ? "var(--gray-btn)" : "var(--accent)",
+            color: value == null ? "var(--gray-btn-ink)" : "#fff",
+            transition: "background .2s ease, color .2s ease" }}>
+            Uložiť
+          </button>
         )}
       </div>
     </React.Fragment>
   );
   if (bare) return body;
   return (
-    <div style={{ background: "#fff", borderRadius: 22, padding: 18, border: "1px solid var(--line)",
+    <div style={{ background: "#fff", borderRadius: 24, padding: 20, border: "1px solid var(--line)",
       boxShadow: "0 2px 10px rgba(30,40,70,0.04)" }}>{body}</div>
   );
 }
@@ -327,13 +355,25 @@ function ReminderCard() {
 // ── Rest day state ───────────────────────────────────────────
 function RestState() {
   return (
-    <div style={{ background: "#fff", borderRadius: 20, padding: "18px 18px", border: "1px solid var(--line)",
-      boxShadow: "0 2px 10px rgba(30,40,70,0.04)", display: "flex", alignItems: "center", gap: 14 }}>
-      <div style={{ width: 48, height: 48, borderRadius: 14, flexShrink: 0,
-        background: "var(--rest-wash)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Icon name="moon" size={24} stroke="var(--rest)" />
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ background: "var(--rest-wash)", borderRadius: 22, padding: "34px 24px 30px",
+        border: "1px solid var(--line)", textAlign: "center" }}>
+        <div style={{ fontSize: 20, fontWeight: 760, color: "var(--ink)", letterSpacing: -0.4, marginBottom: 7 }}>Deň odpočinku</div>
+        <div style={{ fontSize: 14.5, color: "var(--muted)", lineHeight: 1.5, maxWidth: 268, margin: "0 auto", textWrap: "pretty" }}>
+          Dnes nemáte naplánované žiadne cviky. Doprajte telu čas na regeneráciu — pomáha to hojeniu aj výkonu.
+        </div>
       </div>
-      <div style={{ fontSize: 17, fontWeight: 700, color: "var(--ink)" }}>Oddýchnite si</div>
+      <div style={{ background: "#fff", borderRadius: 16, padding: "14px 16px", border: "1px solid var(--line)",
+        display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: "var(--accent-wash)",
+          display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Icon name="activity" size={19} stroke="var(--accent)" />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 680, color: "var(--ink)" }}>Ľahký pohyb je vítaný</div>
+          <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2, lineHeight: 1.4 }}>Krátka prechádzka alebo jemné strečovanie udrží telo v pohybe.</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -394,7 +434,7 @@ function ExerciseRow({ ex, done, seriesDone, onAddSeries, onOpen }) {
       background: "#fff", borderRadius: 16,
       border: done ? "1.5px solid var(--ok-line)" : "1px solid var(--line)", cursor: "pointer",
       transition: "border-color .25s ease" }}>
-      <VideoMedia style={{ width: 46, height: 46, flexShrink: 0 }} rounded={12} label="" />
+      <VideoMedia src={ex.video} poster={ex.poster} style={{ width: 46, height: 46, flexShrink: 0 }} rounded={12} label="" />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 650, color: "var(--ink)", lineHeight: 1.25,
           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ex.name}</div>
@@ -465,6 +505,67 @@ function PainPicker({ value, onChange }) {
   );
 }
 
+// ── Full-screen daily pain entry (same chrome as the assessment) ──
+function PainScreen({ value, onChange, onClose, onSave }) {
+  return (
+    <div className="fz-fade" style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column",
+      background: "#fff", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 11, left: "50%", transform: "translateX(-50%)",
+        width: 126, height: 37, borderRadius: 24, background: "#000", zIndex: 100 }} />
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 20 }}><IOSStatusBar /></div>
+
+      <div style={{ flexShrink: 0, padding: "52px 18px 10px" }}>
+        <button onClick={onClose} aria-label="Späť" style={{ width: 40, height: 40, borderRadius: "50%",
+          border: "1px solid var(--line)", background: "#fff", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Icon name="chevL" size={21} stroke="var(--ink)" />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "8px 22px 20px" }}>
+        <div style={{ fontSize: 24, fontWeight: 760, color: "var(--ink)", letterSpacing: -0.4, lineHeight: 1.25, marginBottom: 8 }}>
+          Aká je dnes vaša bolesť?
+        </div>
+        <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.5, marginBottom: 20 }}>
+          Zaznamenajte silu bolesti pred dnešným cvičením. 0 znamená žiadnu bolesť, 10 najsilnejšiu bolesť.
+        </div>
+
+        <div style={{ textAlign: "center", margin: "8px 0 22px" }}>
+          <span style={{ fontSize: 56, fontWeight: 800, letterSpacing: -2, lineHeight: 1,
+            color: value == null ? "var(--faint)" : "var(--accent)", fontVariantNumeric: "tabular-nums" }}>
+            {value == null ? "–" : value}
+          </span>
+          <div style={{ fontSize: 15, fontWeight: 660, marginTop: 8,
+            color: value == null ? "var(--faint)" : "var(--accent)" }}>{painLabel(value)}</div>
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+          {Array.from({ length: 11 }).map((_, n) => {
+            const sel = value === n;
+            return (
+              <button key={n} onClick={() => onChange(n)} style={{
+                width: 48, height: 48, borderRadius: "50%", cursor: "pointer",
+                fontFamily: "inherit", fontSize: 17, fontWeight: sel ? 760 : 560,
+                border: sel ? "none" : "1.5px solid var(--line)",
+                background: sel ? "var(--accent)" : "#fff", color: sel ? "#fff" : "var(--text)",
+                boxShadow: sel ? "0 4px 14px var(--accent-shadow)" : "none",
+                transition: "background .14s ease, color .14s ease", padding: 0 }}>{n}</button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ flexShrink: 0, padding: "12px 22px 30px" }}>
+        <button onClick={onSave} disabled={value == null} style={{ width: "100%", border: "none",
+          borderRadius: 16, padding: "17px", fontSize: 16.5, fontWeight: 680, fontFamily: "inherit",
+          cursor: value == null ? "default" : "pointer", color: "#fff", background: "var(--accent)",
+          opacity: value == null ? 0.4 : 1, boxShadow: value == null ? "none" : "0 8px 22px var(--accent-shadow)",
+          transition: "opacity .2s ease" }}>Uložiť</button>
+      </div>
+    </div>
+  );
+}
+
 // ── Compact metric pill (value over label) ───────────────────
 function MiniStat({ big, label, tone }) {
   const c = tone === "ok" ? { bg: "var(--ok-wash)", v: "var(--ok-ink)" }
@@ -490,7 +591,7 @@ function AssessmentCard({ onOpen }) {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 11.5, fontWeight: 650, color: "rgba(255,255,255,0.62)", letterSpacing: 0.3, textTransform: "uppercase" }}>Hodnotiaci nástroj</div>
-        <div style={{ fontSize: 16.5, fontWeight: 700, marginTop: 2 }}>Index centrálnej senzitizácie (CSI) · ~5 minút</div>
+        <div style={{ fontSize: 16.5, fontWeight: 700, marginTop: 2 }}>Závažnosť tendinopatie – Achillova šľacha (TENDINS-A) · ~5 minút</div>
       </div>
       <Icon name="chevR" size={20} stroke="rgba(255,255,255,0.9)" />
     </button>
@@ -553,6 +654,9 @@ function HomeScreen({ selectedDay, onSelectDay, series, onAddSeries, onOpenEx, o
 
       {/* Body */}
       <div style={{ padding: "16px 20px 8px", display: "flex", flexDirection: "column", gap: 14 }}>
+        {isExerciseDay && (
+          <DailyPainCard value={pain} onOpen={onOpenPain} />
+        )}
         {isToday && !assessDone && <AssessmentCard onOpen={onOpenAssessment} />}
         {isExerciseDay && (
           <React.Fragment>
@@ -616,4 +720,4 @@ function HomeScreen({ selectedDay, onSelectDay, series, onAddSeries, onOpenEx, o
   );
 }
 
-Object.assign(window, { HomeScreen, PainCheckIn, PainPicker });
+Object.assign(window, { HomeScreen, PainCheckIn, PainPicker, PainScreen });

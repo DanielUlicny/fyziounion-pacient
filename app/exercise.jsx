@@ -4,8 +4,18 @@
 const CARD_DEFAULT = 300;
 const CARD_EXPANDED = 512;
 
+function fmtTime(s) {
+  s = Math.max(0, Math.floor(s || 0));
+  const m = Math.floor(s / 60), r = s % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
 function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext, onNext, hasPrev, onPrev }) {
   const [playing, setPlaying] = React.useState(true);
+  const [muted, setMuted] = React.useState(true);
+  const [cur, setCur] = React.useState(0);
+  const [dur, setDur] = React.useState(0);
+  const vctrl = React.useRef(null);
   const [secLeft, setSecLeft] = React.useState(ex.kind === "time" ? ex.hold : null);
   const [running, setRunning] = React.useState(false);
   const [view, setView] = React.useState("default"); // default | expanded | fullscreen
@@ -120,11 +130,11 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
           boxShadow: filled ? "none" : "0 18px 44px rgba(20,30,70,0.18)",
           transition: noTrans ? "none" : `border-radius .3s ${ease}`,
         }}>
-          <VideoMedia big playing={playing} style={{ width: "100%", height: "100%" }}
+          <VideoMedia big playing={playing} muted={muted}
+            src={ex.video} poster={ex.poster}
+            onProgress={(c, d) => { setCur(c); setDur(d); }} controlsRef={vctrl}
+            style={{ width: "100%", height: "100%" }}
             rounded={filled ? 0 : 26} label="video cviku" />
-
-          <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 120,
-            background: "linear-gradient(to top, rgba(12,18,40,0.5), transparent)", pointerEvents: "none" }} />
 
           {!filled && (
             <button onClick={(e) => { e.stopPropagation(); setView((v) => (v === "fullscreen" ? "default" : "fullscreen")); }}
@@ -138,17 +148,63 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
             </button>
           )}
 
+          {/* bottom control cluster — play/pause + sound row, then white scrub bar, then time labels */}
           <button onClick={(e) => { e.stopPropagation(); setPlaying((p) => !p); }} onPointerUp={(e) => e.stopPropagation()} aria-label={playing ? "Pozastaviť" : "Prehrať"} style={{
-            position: "absolute", left: 16, bottom: 16, zIndex: 6,
-            width: 36, height: 36, border: "none", background: "none", cursor: "pointer",
+            position: "absolute", left: 6, bottom: 48, zIndex: 6,
+            width: 44, height: 44, border: "none", background: "none", cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
             filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.45))" }}>
-            <Icon name={playing ? "pause" : "play"} size={22} stroke="#fff" sw={2.2} />
+            <Icon name={playing ? "pause" : "play"} size={30} stroke="#fff" sw={2.2} />
           </button>
-          <div style={{ position: "absolute", right: 16, bottom: 16, zIndex: 6,
-            width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center",
+          <button onClick={(e) => { e.stopPropagation(); setMuted((m) => !m); }} onPointerUp={(e) => e.stopPropagation()}
+            aria-label={muted ? "Zapnúť zvuk" : "Stlmiť"} style={{
+            position: "absolute", right: 12, bottom: 48, zIndex: 6,
+            width: 44, height: 44, border: "none", background: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
             filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.45))" }}>
-            <Icon name="sound" size={22} stroke="#fff" sw={2.2} />
+            <Icon name={muted ? "soundOff" : "sound"} size={30} stroke="#fff" sw={2.2} />
+          </button>
+
+          {/* white seekable timeline — spans from the pause icon to the sound icon */}
+          <div onPointerDown={(e) => {
+              e.stopPropagation(); e.preventDefault();
+              const track = e.currentTarget;
+              try { track.setPointerCapture(e.pointerId); } catch (err) {}
+              const seek = (clientX) => {
+                const rr = track.getBoundingClientRect();
+                const frac = (clientX - rr.left) / rr.width;
+                vctrl.current && vctrl.current.seek(frac);
+              };
+              seek(e.clientX);
+              const move = (ev) => seek(ev.clientX);
+              const up = () => {
+                track.removeEventListener("pointermove", move);
+                window.removeEventListener("pointermove", move);
+                window.removeEventListener("pointerup", up);
+              };
+              track.addEventListener("pointermove", move);
+              window.addEventListener("pointermove", move);
+              window.addEventListener("pointerup", up);
+            }}
+            style={{ position: "absolute", left: 22, right: 22, bottom: 30, zIndex: 6,
+              height: 24, display: "flex", alignItems: "center", cursor: "pointer", touchAction: "none" }}>
+            <div style={{ position: "relative", width: "100%", height: 4, borderRadius: 99,
+              background: "rgba(255,255,255,0.35)", pointerEvents: "none" }}>
+              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, borderRadius: 99,
+                width: `${dur ? (cur / dur) * 100 : 0}%`, background: "#fff" }} />
+              <div style={{ position: "absolute", top: "50%", left: `${dur ? (cur / dur) * 100 : 0}%`,
+                width: 13, height: 13, borderRadius: "50%", background: "#fff",
+                transform: "translate(-50%, -50%)", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }} />
+            </div>
+          </div>
+
+          {/* time labels — current / total */}
+          <div style={{ position: "absolute", left: 22, right: 22, bottom: 12, zIndex: 6,
+            display: "flex", justifyContent: "space-between", pointerEvents: "none" }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "rgba(255,255,255,0.9)",
+              fontVariantNumeric: "tabular-nums", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>{fmtTime(cur)}</span>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "rgba(255,255,255,0.9)",
+              fontVariantNumeric: "tabular-nums", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>{fmtTime(dur)}</span>
           </div>
         </div>
       </div>
@@ -198,7 +254,8 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
           {/* name + variation + completion (flexShrink 0) */}
           <div style={{ flexShrink: 0, display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <Marquee text={ex.name} style={{ fontSize: 24, fontWeight: 780, color: "#0d1322", lineHeight: 1.18, letterSpacing: -0.5 }} />
+              <div style={{ fontSize: 24, fontWeight: 780, color: "#0d1322", lineHeight: 1.18, letterSpacing: -0.5,
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ex.name}</div>
               {ex.variation && (
                 <div style={{ fontSize: 15, fontWeight: 500, color: "var(--muted)", marginTop: 5 }}>{ex.variation}</div>
               )}
@@ -239,7 +296,8 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
 
           {/* TIMER — plain stopwatch row (euneo style), divider above; fixed height so it never jumps */}
           {hasTimer && (
-            <div data-tour="ex-timer" style={{ flexShrink: 0, borderTop: "1px solid var(--line)", paddingTop: 16, marginTop: 4, marginBottom: 24 }}>
+            <div style={{ flexShrink: 0, borderTop: "1px solid var(--line)", paddingTop: 16, marginTop: 4, marginBottom: 24 }}>
+              <div data-tour="ex-timer">
               {timerActive ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 40 }}>
                   <Icon name="timer" size={26} stroke="var(--ink)" />
@@ -257,6 +315,7 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
                   <span style={{ flex: 1, minWidth: 0, fontSize: 19, fontWeight: 650, color: "var(--ink)" }}>Nastavte časovač na {ex.hold} sekúnd</span>
                 </button>
               )}
+              </div>
             </div>
           )}
         </div>

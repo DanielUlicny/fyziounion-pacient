@@ -78,13 +78,12 @@ function TimeWheelSheet({ open, value, onClose, onConfirm }) {
   }, [open]);
   const hours = React.useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
   const mins = React.useMemo(() => Array.from({ length: 60 }, (_, i) => i), []);
+  if (!open) return null;
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 60, pointerEvents: open ? "auto" : "none" }}>
+    <div style={{ position: "absolute", inset: 0, zIndex: 60 }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "transparent" }} />
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0,
+      <div className="fz-sheet-up" style={{ position: "absolute", left: 0, right: 0, bottom: 0,
         background: "#fff", borderRadius: "26px 26px 0 0",
-        transform: open ? "translateY(0)" : "translateY(100%)",
-        transition: "transform .32s cubic-bezier(.32,.72,0,1)",
         boxShadow: "0 -10px 40px rgba(20,28,55,0.18)",
         padding: "12px 22px calc(26px + env(safe-area-inset-bottom))" }}>
         <div style={{ width: 40, height: 5, borderRadius: 3, background: "var(--line)", margin: "0 auto 14px" }} />

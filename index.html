@@ -21,7 +21,7 @@
     --text: #404a66;
     --muted: #8b91a7;
     --faint: #b3b8c8;
-    --bg: #f4f6f9;
+    --bg: #ffffff;
     --line: #eaecf2;
     --chip: #f2f4f9;
     --mono: 'Roboto Mono', ui-monospace, monospace;
@@ -32,6 +32,8 @@
     --warm: #3b6fe0; --warm-wash: #e9eef9;
     --rest: #5a6b8c; --rest-wash: #eceff5;
     --danger: #39507a;
+    --gray-btn: #e7eaf1; --gray-btn-ink: #a2a9bd;
+    --auth-err: #c0453e; --auth-err-wash: #fbecea;
   }
   button { font-family: inherit; }
   ::-webkit-scrollbar { width: 0; height: 0; }
@@ -40,7 +42,13 @@
   @keyframes fzFade { from { transform: translateY(8px); } to { transform: none; } }
   .fz-fade { animation: fzFade .34s cubic-bezier(.32,.72,0,1) both; }
   @keyframes fzMarquee { 0%, 16% { transform: translateX(0); } 84%, 100% { transform: translateX(var(--mq-end)); } }
-  @media (prefers-reduced-motion: reduce) { .fz-fade { animation: none; } }
+  @keyframes fzSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .fz-sheet-up { animation: fzSheetUp .32s cubic-bezier(.32,.72,0,1) both; }
+  @keyframes fzScrim { from { opacity: 0; } to { opacity: 1; } }
+  .fz-scrim { animation: fzScrim .28s ease both; }
+  @keyframes fzShimmer { 0% { background-position: -160% 0; } 100% { background-position: 260% 0; } }
+  .fz-skeleton { background: linear-gradient(100deg, #e7eaf0 30%, #f2f4f8 50%, #e7eaf0 70%); background-size: 220% 100%; animation: fzShimmer 1.25s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .fz-fade, .fz-sheet-up, .fz-scrim, .fz-skeleton { animation: none; } }
 </style>
 </head>
 <body>
@@ -62,6 +70,8 @@
 <script type="text/babel" src="app/data.jsx"></script>
 <script type="text/babel" src="app/ui.jsx"></script>
 <script type="text/babel" src="app/login.jsx"></script>
+<script type="text/babel" src="app/auth-ui.jsx"></script>
+<script type="text/babel" src="app/auth.jsx"></script>
 <script type="text/babel" src="app/programs.jsx"></script>
 <script src="frames/image-slot.js"></script>
 <script type="text/babel" src="app/phase.jsx"></script>

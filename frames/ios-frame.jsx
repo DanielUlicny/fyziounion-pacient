@@ -200,12 +200,22 @@ function IOSDevice({
   children, width = 402, height = 874, dark = false,
   title, keyboard = false,
 }) {
+  const bezel = 13;
   return (
+    <div style={{
+      position: 'relative', padding: bezel, borderRadius: 48 + bezel,
+      background: 'linear-gradient(150deg, #3a3d42 0%, #17181a 42%, #2b2d31 100%)',
+      boxShadow: '0 44px 90px rgba(0,0,0,0.34), 0 6px 20px rgba(0,0,0,0.22), inset 0 0 0 1.5px rgba(255,255,255,0.16), inset 0 0 0 3px rgba(0,0,0,0.5)',
+      fontFamily: "'Inter', -apple-system, system-ui, sans-serif",
+    }}>
+      {/* titanium side buttons */}
+      <div style={{ position: 'absolute', left: -2.5, top: 132, width: 3, height: 32, borderRadius: 3, background: 'linear-gradient(90deg,#0d0e10,#3a3d42)' }} />
+      <div style={{ position: 'absolute', left: -2.5, top: 190, width: 3, height: 58, borderRadius: 3, background: 'linear-gradient(90deg,#0d0e10,#3a3d42)' }} />
+      <div style={{ position: 'absolute', left: -2.5, top: 262, width: 3, height: 58, borderRadius: 3, background: 'linear-gradient(90deg,#0d0e10,#3a3d42)' }} />
+      <div style={{ position: 'absolute', right: -2.5, top: 210, width: 3, height: 92, borderRadius: 3, background: 'linear-gradient(270deg,#0d0e10,#3a3d42)' }} />
     <div style={{
       width, height, borderRadius: 48, overflow: 'hidden',
       position: 'relative', background: dark ? '#000' : '#F2F2F7',
-      boxShadow: '0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12)',
-      fontFamily: "'Inter', -apple-system, system-ui, sans-serif",
       WebkitFontSmoothing: 'antialiased',
     }}>
       {/* dynamic island */}
@@ -234,6 +244,7 @@ function IOSDevice({
           background: dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.25)',
         }} />
       </div>
+    </div>
     </div>
   );
 }

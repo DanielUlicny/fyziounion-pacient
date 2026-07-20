@@ -1,4 +1,4 @@
-// app/checkin.jsx — Morning check-in overlay (raz za deň)
+// app/checkin.jsx — Morning check-in (raz za deň) — wizard style zladený s registráciou
 // Exports to window: MorningCheckIn
 
 const CI_DATE_KEY = "fyzio_checkin_date";
@@ -24,18 +24,17 @@ const CIIcon = ({ name, size = 22, stroke = "var(--ink)", sw = 1.8, fill = "none
 
 };
 
-// ── inject animations once ───────────────────────────────────
+// ── inject animations once (opacity-only — transforms blur text) ──
 (function () {
-  if (document.getElementById("ci-styles")) return;
+  const old = document.getElementById("ci-styles");
+  if (old) old.remove();
   const s = document.createElement("style");
   s.id = "ci-styles";
   s.textContent = `
-    @keyframes ci-fz  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
-    @keyframes ci-row { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
-    .ci-fz, .ci-row { opacity:1; }
+    @keyframes ci-fz  { from { opacity:0; } to { opacity:1; } }
+    .ci-fz { opacity:1; }
     @media (prefers-reduced-motion: no-preference) {
-      .ci-fz  { animation: ci-fz  .28s cubic-bezier(.32,.72,0,1) both; }
-      .ci-row { animation: ci-row .30s cubic-bezier(.32,.72,0,1) var(--d,0s) both; }
+      .ci-fz { animation: ci-fz .26s ease both; }
     }
   `;
   document.head.appendChild(s);
@@ -43,48 +42,41 @@ const CIIcon = ({ name, size = 22, stroke = "var(--ink)", sw = 1.8, fill = "none
 
 // ── steps ────────────────────────────────────────────────────
 const CI_STEPS = [
-{ id: "sleep", icon: "moon", q: "Ako sa dnes vyspali?",
-  sub: null,
+{ id: "sleep", icon: "moon", q: "Ako ste sa dnes vyspali?",
   opts: [{ l: "Výborne", d: 4 }, { l: "Dobre", d: 3 }, { l: "Slabo", d: 2 }, { l: "Zle", d: 1 }] },
-{ id: "alcohol", icon: "cup", q: "Pili ste včera alkohol?",
-  sub: null, yesno: true },
 { id: "food", icon: "leaf", q: "Ako ste sa stravovali?",
-  sub: null,
   opts: [{ l: "Výborne", d: 4 }, { l: "Dobre", d: 3 }, { l: "Slabo", d: 2 }, { l: "Zle", d: 1 }] },
 { id: "stress", icon: "zap", q: "Aká je vaša hladina stresu?",
-  sub: null,
   opts: [{ l: "Žiadny", d: 4 }, { l: "Mierny", d: 3 }, { l: "Stredný", d: 2 }, { l: "Silný", d: 1 }] },
-{ id: "meds", icon: "pill", q: "Brali ste lieky proti bolesti?",
-  sub: null, yesno: true,
-  yesLabel: "Áno, bral(a) som", noLabel: "Nie, nebral(a)" },
-{ id: "pain", icon: "activity", q: "Aká silná je dnes vaša bolesť?",
-  sub: null, pain: true }];
+{ id: "alcohol", icon: "cup", q: "Pili ste včera alkohol?", yesno: true,
+  yesLabel: "Pil(a) som", noLabel: "Žiadny alkohol" },
+{ id: "meds", icon: "pill", q: "Brali ste lieky proti bolesti?", yesno: true,
+  yesLabel: "Áno, bral(a) som", noLabel: "Nie, nebral(a)" }];
 
 
-const ciPainHue = (v) => `color-mix(in oklab, var(--accent), #0c1228 ${Math.round(v * 5)}%)`;
-const ciPainLabel = (v) => v == null ? "Ťuknite na číslo" : v <= 2 ? "Žiadna alebo mierna" : v <= 5 ? "Mierna bolesť" : v <= 7 ? "Stredná bolesť" : "Silná bolesť";
+const ciPainLabel = null;
 
-// ── answer row ───────────────────────────────────────────────
-function CIAnswerRow({ idx, dots, label, selected, onClick }) {
+// ── single-choice card (rovnaký vzor ako výber pohlavia v registrácii) ──
+function CIOptionRow({ label, note, selected, onClick }) {
   const sel = selected;
   return (
-    <button onClick={onClick} className="ci-row" style={{
-      ["--d"]: `${idx * 0.05}s`,
-      display: "flex", alignItems: "center", gap: 14, width: "100%", height: 62, padding: "0 18px",
-      border: sel ? "none" : "1.5px solid var(--line)",
-      background: sel ? "var(--accent)" : "#fff", borderRadius: 18, cursor: "pointer", fontFamily: "inherit",
-      boxShadow: sel ? "0 8px 22px var(--accent-shadow)" : "0 1px 4px rgba(30,40,70,0.05)",
-      transition: "transform .14s ease, background .16s ease",
-      transform: sel ? "scale(0.99)" : "scale(1)" }}>
-      <div style={{ display: "flex", gap: 4, width: 46, flexShrink: 0 }}>
-        {[1, 2, 3, 4].map((d) =>
-        <span key={d} style={{ width: 8, height: 8, borderRadius: "50%",
-          background: d <= dots ? sel ? "#fff" : "var(--accent)" : sel ? "rgba(255,255,255,0.28)" : "#dfe3ec" }} />
-        )}
-      </div>
-      <span style={{ flex: 1, textAlign: "left", fontSize: 17, fontWeight: 700,
-        color: sel ? "#fff" : "var(--ink)" }}>{label}</span>
-      <CIIcon name="arrow" size={18} stroke={sel ? "#fff" : "var(--faint)"} sw={2} />
+    <button onClick={onClick} style={{ width: "100%", display: "flex",
+      alignItems: "center", gap: 13, textAlign: "left", fontFamily: "inherit", cursor: "pointer",
+      padding: note ? "14px 16px" : "16px 16px", borderRadius: 14,
+      border: `1.5px solid ${sel ? "var(--accent)" : "var(--line)"}`,
+      background: sel ? "var(--accent-wash)" : "#fff",
+      transition: "background .15s ease, border-color .15s ease" }}>
+      <span style={{ width: 23, height: 23, borderRadius: "50%", flexShrink: 0,
+        border: `2px solid ${sel ? "var(--accent)" : "var(--faint)"}`,
+        background: sel ? "var(--accent)" : "#fff",
+        display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {sel && <span style={{ width: 8.5, height: 8.5, borderRadius: "50%", background: "#fff" }} />}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: 16, fontWeight: sel ? 660 : 500,
+          color: sel ? "var(--accent-ink)" : "var(--ink)" }}>{label}</span>
+        {note && <span style={{ display: "block", fontSize: 13, color: "var(--muted)", marginTop: 2 }}>{note}</span>}
+      </span>
     </button>);
 
 }
@@ -95,20 +87,24 @@ function CIDoneScreen({ onDone, answers }) {
     <div className="ci-fz" style={{ flex: 1, display: "flex", flexDirection: "column",
       padding: "0 26px 30px", overflow: "hidden" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", textAlign: "center", alignItems: "center" }}>
-        <div style={{ fontSize: 34, fontWeight: 830, color: "var(--ink)", letterSpacing: -1, lineHeight: 1.05 }}>
-          Ďakujeme.<br />Poďme cvičiť! 💪
+        <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--ok-wash)",
+          display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
+          <CIIcon name="check" size={30} stroke="var(--ok)" sw={2.4} />
         </div>
-        <div style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.55, marginTop: 14, maxWidth: 290 }}>Vaše odpovede boli zaznamenané a odoslané vašemu fyzioterapeutovi
-
+        <div style={{ fontSize: 30, fontWeight: 800, color: "var(--ink)", letterSpacing: -0.8, lineHeight: 1.15 }}>
+          Ďakujeme.<br />Poďme cvičiť!
+        </div>
+        <div style={{ fontSize: 14.5, color: "var(--muted)", lineHeight: 1.55, marginTop: 12, maxWidth: 280 }}>
+          Vaše odpovede boli zaznamenané a odoslané vášmu fyzioterapeutovi.
         </div>
       </div>
       <button onClick={() => onDone(answers)} style={{
-        width: "100%", border: "none", borderRadius: 16, padding: "18px",
-        fontSize: 17, fontWeight: 720, fontFamily: "inherit", cursor: "pointer", color: "#fff",
+        width: "100%", border: "none", borderRadius: 16, padding: "16px 18px",
+        fontSize: 16.5, fontWeight: 650, fontFamily: "inherit", cursor: "pointer", color: "#fff",
         background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
-        boxShadow: "0 10px 26px var(--accent-shadow)" }}>
+        boxShadow: "0 8px 22px var(--accent-shadow)" }}>
         Začať cvičenie
-        <CIIcon name="arrow" size={20} stroke="#fff" sw={2.2} />
+        <CIIcon name="arrow" size={19} stroke="#fff" sw={2.2} />
       </button>
     </div>);
 
@@ -119,27 +115,16 @@ function MorningCheckIn({ onDone }) {
   const [stepIdx, setStepIdx] = React.useState(0);
   const [answers, setAnswers] = React.useState({});
   const [done, setDone] = React.useState(false);
-  const [sel, setSel] = React.useState(null);
-  const [pain, setPain] = React.useState(null);
-  const [animKey, setAnimKey] = React.useState(0);
 
   const step = CI_STEPS[stepIdx];
-
-  const commit = (val) => {
-    const next = { ...answers, [step.id]: val };
-    setAnswers(next);
-    if (stepIdx >= CI_STEPS.length - 1) {
-      setTimeout(() => setDone(true), 230);
-    } else {
-      setTimeout(() => {
-        setStepIdx((i) => i + 1);
-        setSel(null);setPain(null);setAnimKey((k) => k + 1);
-      }, 210);
-    }
-  };
+  const val = step ? (answers[step.id] !== undefined ? answers[step.id] : null) : null;
+  const setVal = (v) => setAnswers((a) => ({ ...a, [step.id]: v }));
+  const isLast = stepIdx >= CI_STEPS.length - 1;
+  const next = () => { if (isLast) setDone(true); else setStepIdx((i) => i + 1); };
+  const back = () => setStepIdx((i) => Math.max(0, i - 1));
 
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 90, background: "var(--bg)",
+    <div style={{ position: "absolute", inset: 0, zIndex: 90, background: "#fff",
       display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
       {/* dynamic island */}
@@ -148,122 +133,64 @@ function MorningCheckIn({ onDone }) {
 
       <IOSStatusBar />
 
-      {/* extra spacing below status bar */}
-      <div style={{ height: 16, flexShrink: 0 }} />
-
       {done ?
-      <CIDoneScreen onDone={onDone} answers={answers} /> :
+      <React.Fragment>
+        <div style={{ height: 16, flexShrink: 0 }} />
+        <CIDoneScreen onDone={onDone} answers={answers} />
+      </React.Fragment> :
 
       <React.Fragment>
 
-          {/* progress — pinned below status bar */}
-          <div style={{ position: "absolute", top: 62, left: 0, right: 0, padding: "0 22px", zIndex: 5 }}>
-            <div style={{ display: "flex", gap: 6 }}>
-              {CI_STEPS.map((s, i) =>
-            <div key={s.id} style={{ flex: 1, height: 5, borderRadius: 99,
-              background: i <= stepIdx ? "var(--accent)" : "var(--line)",
-              transition: "background .3s ease" }} />
-            )}
+          {/* header — šípka späť + progress + Krok X z Y (ako v registrácii) */}
+          <div style={{ flexShrink: 0, padding: "8px 22px 6px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, height: 40 }}>
+              {stepIdx > 0 ? (
+                <button onClick={back} aria-label="Späť" style={{ width: 40, height: 40, borderRadius: 12,
+                  flexShrink: 0, border: "1px solid var(--line)", background: "#fff", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <OIcon name="chevL" size={20} stroke="var(--text)" />
+                </button>
+              ) : (
+                <div style={{ width: 40, height: 40, flexShrink: 0 }} />
+              )}
+              <div style={{ flex: 1, height: 5, borderRadius: 99, background: "var(--line)", overflow: "hidden" }}>
+                <div style={{ width: `${((stepIdx + 1) / CI_STEPS.length) * 100}%`, height: "100%", borderRadius: 99,
+                  background: "var(--accent)", transition: "width .35s cubic-bezier(.4,0,.2,1)" }} />
+              </div>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)", flexShrink: 0,
+                fontVariantNumeric: "tabular-nums" }}>Krok {stepIdx + 1} z {CI_STEPS.length}</span>
             </div>
           </div>
 
-          {/* answers — centered on the FULL screen; question floats above */}
-          <div key={animKey + "q"} className="ci-fz" style={{ position: "absolute", inset: 0, display: "flex",
-          flexDirection: "column", justifyContent: "center", padding: "0 24px", zIndex: 2 }}>
+          {/* body */}
+          <div key={stepIdx} className="ci-fz" style={{ flex: 1, overflowY: "auto",
+            WebkitOverflowScrolling: "touch", padding: "10px 22px 8px" }}>
 
-          <div style={{ position: "relative" }}>
-
-            <div style={{ position: "absolute", left: 0, right: 0, bottom: "100%", paddingBottom: 22,
-              fontSize: 28, fontWeight: 800, color: "var(--ink)", letterSpacing: -0.8, lineHeight: 1.12, textAlign: "center" }}>{step.q}</div>
+            <div style={{ fontSize: 25, fontWeight: 780, color: "var(--ink)", letterSpacing: -0.6,
+              lineHeight: 1.2, marginBottom: 22 }}>{step.q}</div>
 
             {step.opts &&
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "stretch", justifyContent: "flex-start", textAlign: "left" }}>
-                {step.opts.map((o, i) =>
-              <CIAnswerRow key={o.l} idx={i} dots={o.d} label={o.l} selected={sel === o.l}
-              onClick={() => setSel(o.l)} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+                {step.opts.map((o) =>
+              <CIOptionRow key={o.l} label={o.l} selected={val === o.l} onClick={() => setVal(o.l)} />
               )}
               </div>
             }
 
             {step.yesno &&
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {[
-              { l: "Nie", note: step.noLabel || "Žiadny alkohol" },
-              { l: "Áno", note: step.yesLabel || "Pil(a) som" }].
-              map((o, i) => {
-                const s = sel === o.l;
-                return (
-                  <button key={o.l} onClick={() => setSel(o.l)}
-                  className="ci-row"
-                  style={{ ["--d"]: `${i * 0.05}s`,
-                    display: "flex", alignItems: "center", gap: 14, width: "100%", height: 70, padding: "0 20px",
-                    border: s ? "none" : "1.5px solid var(--line)",
-                    background: s ? "var(--accent)" : "#fff", borderRadius: 18,
-                    cursor: "pointer", fontFamily: "inherit",
-                    boxShadow: s ? "0 8px 22px var(--accent-shadow)" : "0 1px 4px rgba(30,40,70,0.05)",
-                    transition: "all .16s ease" }}>
-                      <span style={{ flex: 1, textAlign: "left" }}>
-                        <span style={{ display: "block", fontSize: 18, fontWeight: 760,
-                        color: s ? "#fff" : "var(--ink)" }}>{o.l}</span>
-                        <span style={{ display: "block", fontSize: 13,
-                        color: s ? "rgba(255,255,255,0.7)" : "var(--faint)", marginTop: 2 }}>{o.note}</span>
-                      </span>
-                      <CIIcon name="arrow" size={18} stroke={s ? "#fff" : "var(--faint)"} sw={2} />
-                    </button>);
-
-              })}
+            <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+                <CIOptionRow label="Nie" note={step.noLabel} selected={val === "Nie"} onClick={() => setVal("Nie")} />
+                <CIOptionRow label="Áno" note={step.yesLabel} selected={val === "Áno"} onClick={() => setVal("Áno")} />
               </div>
             }
-
-            {step.pain &&
-            <div className="ci-fz">
-                <div style={{ textAlign: "center", marginBottom: 20 }}>
-                  <div style={{ fontSize: 60, fontWeight: 850, lineHeight: 1, letterSpacing: -2,
-                  color: pain == null ? "var(--faint)" : ciPainHue(pain),
-                  fontVariantNumeric: "tabular-nums" }}>
-                    {pain == null ? "–" : pain}
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 680, marginTop: 8,
-                  color: pain == null ? "var(--faint)" : ciPainHue(pain) }}>{ciPainLabel(pain)}</div>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 9 }}>
-                  {Array.from({ length: 11 }).map((_, n) => {
-                  const s = pain === n;
-                  return (
-                    <button key={n} onClick={() => setPain(n)} style={{
-                      width: 46, height: 46, borderRadius: "50%", cursor: "pointer", fontFamily: "inherit",
-                      fontSize: 17.5, fontWeight: s ? 780 : 640, flexShrink: 0,
-                      border: s ? "none" : "1.5px solid var(--line)",
-                      background: s ? ciPainHue(n) : "#fff", color: s ? "#fff" : "var(--muted)",
-                      transform: s ? "scale(1.1)" : "none", transition: "all .14s ease", padding: 0 }}>{n}</button>);
-
-                })}
-                </div>
-              </div>
-            }
-            </div>
           </div>
 
-          {/* footer — advance only on click */}
-          {(() => {
-          const val = step.pain ? pain : sel;
-          const ready = val != null;
-          const isLast = stepIdx >= CI_STEPS.length - 1;
-          return (
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 5, padding: "12px 24px 47px" }}>
-              <button onClick={() => commit(val)} disabled={!ready}
-              style={{ width: "100%", border: "none", borderRadius: 16, padding: "17px",
-                fontSize: 16.5, fontWeight: 680, fontFamily: "inherit",
-                cursor: ready ? "pointer" : "default",
-                color: "#fff", background: "var(--accent)", opacity: ready ? 1 : 0.4,
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                boxShadow: ready ? "0 8px 22px var(--accent-shadow)" : "none",
-                transition: "opacity .2s ease" }}>
-                {isLast ? "Dokončiť check-in" : "Ďalej"}
-              </button>
-            </div>);
-
-        })()}
+          {/* footer — sivé Ďalšie, slate keď je vybrané (ako v registrácii) */}
+          <div style={{ flexShrink: 0, padding: "12px 22px 30px" }}>
+            <NextButton disabled={val == null} onClick={() => val != null && next()}>
+              {isLast ? "Dokončiť" : "Ďalšie"}
+            </NextButton>
+          </div>
         </React.Fragment>
       }
     </div>);

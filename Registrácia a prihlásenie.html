@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FyzioUnion — Registrácia a prihlásenie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@500;600&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: radial-gradient(120% 100% at 50% 0%, #eef1f6 0%, #e4e8f0 100%);
+    -webkit-font-smoothing: antialiased;
+    color: #1b2238;
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 28px 16px;
+  }
+  :root {
+    --ink: #1b2238;
+    --text: #404a66;
+    --muted: #8b91a7;
+    --faint: #b3b8c8;
+    --bg: #f4f6f9;
+    --line: #eaecf2;
+    --chip: #f2f4f9;
+    --mono: 'Roboto Mono', ui-monospace, monospace;
+
+    --accent: #455A74;
+    --accent-ink: color-mix(in oklab, #455A74, #0c1228 30%);
+    --accent-wash: color-mix(in srgb, #455A74 9%, white);
+    --accent-soft: color-mix(in srgb, #455A74 26%, white);
+    --accent-shadow: color-mix(in srgb, #455A74 18%, transparent);
+    --accent-disabled: color-mix(in srgb, #455A74 42%, white);
+
+    --gray-btn: #e7eaf1;
+    --gray-btn-ink: #a2a9bd;
+
+    --ok: #1f9e63; --ok-ink: #14794a; --ok-wash: #e8f6ee;
+    --danger: #c0453e; --danger-wash: #fbecea;
+  }
+  button { font-family: inherit; }
+  input::placeholder { color: var(--faint); font-weight: 500; }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  * { scrollbar-width: none; }
+  @keyframes fzBlink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+  @keyframes fzFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .fz-fade { animation: fzFade .34s cubic-bezier(.32,.72,0,1) both; }
+  @keyframes fzSheet { from { transform: translateY(100%); } to { transform: none; } }
+  .fz-sheet { animation: fzSheet .34s cubic-bezier(.32,.72,0,1) both; }
+  @media (prefers-reduced-motion: reduce) { .fz-fade, .fz-sheet { animation: none; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<template id="__bundler_thumbnail">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#455A74"/>
+    <path d="M50 26l6 18 18 4-18 6-6 18-6-18-18-6 18-4z" fill="#fff"/>
+  </svg>
+</template>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="frames/ios-frame.jsx"></script>
+<script type="text/babel" src="onb/onb-ui.jsx"></script>
+<script type="text/babel" src="onb/onb-flow.jsx"></script>
+<script type="text/babel" data-presets="react">
+  ReactDOM.createRoot(document.getElementById('root')).render(<OnboardingFlow />);
+</script>
+</body>
+</html>

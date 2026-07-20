@@ -26,64 +26,110 @@ function SummaryCard({ icon, value, unit, label, tone }) {
 function AdherenceChart({ range }) {
   const t = useT();
   const minimal = (t.chartStyle || "soft") === "minimal";
+  const [sel, setSel] = React.useState(null);
+  React.useEffect(() => { setSel(null); }, [range]);
 
   let data;
   if (range === "7") {
-    data = FYZIO.adherence; // existing 7-day Po-Ne weekly data
+    data = FYZIO.adherence.map(d => ({
+      v: d.v, d: d.d, span: d.d, rest: !!d.rest,
+      pct: Math.round(d.v * 100),
+      status: d.rest ? "Deň odpočinku" : d.v >= 1 ? "Splnené" : d.v > 0 ? "Čiastočne" : "Nesplnené",
+    }));
   } else if (range === "30") {
-    // last 30 days grouped every 5 days → 6 clean bars
-    const last30 = FYZIO.adherenceHistory.slice(-30);
+    // buckety po 3 dňoch → % splnených cvičebných dní
+    const last = FYZIO.adherenceHistory.slice(-30);
     data = [];
-    for (let i = 0; i < last30.length; i += 5) {
-      const chunk = last30.slice(i, i + 5);
+    for (let i = 0; i < last.length; i += 3) {
+      const chunk = last.slice(i, i + 3);
       const train = chunk.filter(c => c.isTrain);
-      const v = train.length > 0 ? train.filter(c => c.v > 0).length / train.length : 0;
-      data.push({ v: Math.round(v * 10) / 10, d: chunk[0].dateStr });
+      const done = train.filter(c => c.v > 0).length;
+      const v = train.length > 0 ? done / train.length : 0;
+      data.push({ v: Math.round(v * 10) / 10, d: chunk[0].dateStr,
+        span: `${chunk[0].dateStr} – ${chunk[chunk.length - 1].dateStr}`,
+        rest: train.length === 0,
+        pct: Math.round(v * 100),
+        status: train.length === 0 ? "Bez cvičenia" : `${done}/${train.length} dní splnených` });
     }
   } else {
-    // 3 months: group every 10 days, bar = % compliance
+    // buckety po 6 dňoch → % splnených cvičebných dní
     const last = FYZIO.adherenceHistory.slice(-90);
     data = [];
-    for (let i = 0; i < last.length; i += 10) {
-      const chunk = last.slice(i, i + 10);
+    for (let i = 0; i < last.length; i += 6) {
+      const chunk = last.slice(i, i + 6);
       const train = chunk.filter(c => c.isTrain);
-      const v = train.length > 0 ? train.filter(c => c.v > 0).length / train.length : 0;
-      data.push({ v: Math.round(v * 10) / 10, d: chunk[0].dateStr });
+      const done = train.filter(c => c.v > 0).length;
+      const v = train.length > 0 ? done / train.length : 0;
+      data.push({ v: Math.round(v * 10) / 10, d: chunk[0].dateStr,
+        span: `${chunk[0].dateStr} – ${chunk[chunk.length - 1].dateStr}`,
+        rest: train.length === 0,
+        pct: Math.round(v * 100),
+        status: train.length === 0 ? "Bez cvičenia" : `${done}/${train.length} dní splnených` });
     }
   }
 
-  const showLabel = i => true;
+  const scroll = data.length > 7;
+
+  const selD = sel !== null ? data[sel] : null;
 
   return (
-    <div style={{ display: "flex", gap: 10, alignItems: "flex-end",
-      height: 110, padding: "0 2px", overflowX: "hidden" }}>
-      {data.map((d, i) => (
-        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-          <div style={{ width: "100%", height: 84, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-            {minimal ? (
-              <div style={{ width: 9, height: `${Math.max(d.v * 100, 6)}%`, borderRadius: 6,
-                background: d.v === 0 ? "var(--line)" : d.v < 1 ? "var(--accent-light)" : "var(--accent)" }} />
-            ) : (
-              <div style={{ width: "78%", maxWidth: 32,
-                height: `${Math.max(d.v * 100, 8)}%`, borderRadius: 8,
-                background: d.v === 0 ? "var(--chip)" : d.v < 1
-                  ? "linear-gradient(var(--accent-light), var(--accent-light))"
-                  : "linear-gradient(180deg, var(--accent-light), var(--accent))",
-                position: "relative" }}>
-                {d.v === 1 && (
-                  <span style={{ position: "absolute", top: -18, left: "50%", transform: "translateX(-50%)" }}>
-                    <Icon name="check" size={12} stroke="var(--ok)" sw={3} />
-                  </span>
+    <div>
+      {/* selection detail / hint */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12, minHeight: 24 }}>
+        {selD ? (
+          <>
+            <span style={{ fontSize: 22, fontWeight: 780, color: selD.rest ? "var(--muted)" : "var(--accent)", letterSpacing: -0.5 }}>
+              {selD.rest ? "—" : `${selD.pct} %`}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>
+              {`${selD.span} · ${selD.status}`}
+            </span>
+          </>
+        ) : (
+          <span style={{ fontSize: 12.5, color: "var(--faint)", fontWeight: 550 }}>
+            {scroll ? "Klepnite na stĺpec · potiahnutím zobrazíte viac" : "Klepnite na stĺpec pre detail"}
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-end",
+        height: 110, padding: scroll ? "0 2px 4px" : "0 2px",
+        overflowX: scroll ? "auto" : "hidden", WebkitOverflowScrolling: "touch" }}>
+        {data.map((d, i) => {
+          const isSel = sel === i;
+          return (
+            <div key={i} onClick={() => setSel(isSel ? null : i)}
+              style={{ flex: scroll ? "0 0 46px" : 1, display: "flex", flexDirection: "column",
+                alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <div style={{ width: "100%", height: 84, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+                {d.rest ? (
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--line)", marginBottom: 2 }} />
+                ) : minimal ? (
+                  <div style={{ width: 9, height: `${Math.max(d.v * 100, 6)}%`, borderRadius: 6,
+                    background: d.v === 0 ? "var(--chip)" : d.v < 1 ? "var(--accent-light)" : "var(--accent)",
+                    outline: isSel ? "2px solid var(--accent)" : "none", outlineOffset: 2 }} />
+                ) : (
+                  <div style={{ width: "78%", maxWidth: 32,
+                    height: `${Math.max(d.v * 100, 8)}%`, borderRadius: 8,
+                    background: d.v === 0 ? "var(--chip)" : d.v < 1
+                      ? "linear-gradient(var(--accent-light), var(--accent-light))"
+                      : "linear-gradient(180deg, var(--accent-light), var(--accent))",
+                    outline: isSel ? "2px solid var(--accent)" : "none", outlineOffset: 2,
+                    position: "relative" }}>
+                    {d.v === 1 && (
+                      <span style={{ position: "absolute", top: -18, left: "50%", transform: "translateX(-50%)" }}>
+                        <Icon name="check" size={12} stroke="var(--ok)" sw={3} />
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-          {showLabel(i) && (
-            <span style={{ fontSize: 11.5, color: "var(--muted)", fontWeight: 600,
-              whiteSpace: "nowrap" }}>{d.d}</span>
-          )}
-        </div>
-      ))}
+              <span style={{ fontSize: 11.5, color: isSel ? "var(--accent)" : d.rest ? "var(--faint)" : "var(--muted)",
+                fontWeight: isSel ? 750 : 600, whiteSpace: "nowrap" }}>{d.d}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -96,38 +142,37 @@ function PainChart({ range }) {
   React.useEffect(() => { setSel(null); }, [range]);
 
   const all = FYZIO.painHistory;
+  const TODAY = new Date(2026, 5, 9).getTime();
+  const DAY = 86400000;
 
-  // Build chart data per range
+  // Build chart data per range — entries exist only on exercise days
   let chartData;
-  const bucket = (arr) => {
-    const avg = arr.reduce((s, x) => s + x.pain, 0) / arr.length;
-    return Math.round(avg); // averages are rounded, no decimals
-  };
+  const bucket = (arr) => Math.round(arr.reduce((s, x) => s + x.pain, 0) / arr.length);
   if (range === "7") {
-    // last 7 days, one point per day
-    chartData = all.slice(-7).map(d => ({ label: d.dateStr, pain: d.pain, isAvg: false }));
+    const src = all.slice(-4); // presné 4 cvičebné dni (Po, Ut, Št, Pi)
+    chartData = src.map(d => ({ label: d.dateStr, pain: d.pain, isAvg: false }));
   } else if (range === "30") {
-    // last 30 days grouped every 3 days → ~10 points, each a rounded 3-day average
-    const last = all.slice(-30);
+    const src = all.filter(x => x.t > TODAY - 31 * DAY);
+    const size = Math.max(1, Math.ceil(src.length / 8));
     chartData = [];
-    for (let i = 0; i < last.length; i += 3) {
-      const chunk = last.slice(i, i + 3);
-      chartData.push({ label: chunk[0].dateStr, pain: bucket(chunk), isAvg: true });
+    for (let i = 0; i < src.length; i += size) {
+      const chunk = src.slice(i, i + size);
+      chartData.push({ label: chunk[0].dateStr, pain: bucket(chunk), isAvg: chunk.length > 1 });
     }
   } else {
-    // 3 months grouped every 10 days → rounded 10-day averages
-    const last = all.slice(-90);
+    const src = all.filter(x => x.t > TODAY - 91 * DAY);
+    const size = Math.max(1, Math.ceil(src.length / 10));
     chartData = [];
-    for (let i = 0; i < last.length; i += 10) {
-      const chunk = last.slice(i, i + 10);
-      chartData.push({ label: chunk[0].dateStr, pain: bucket(chunk), isAvg: true });
+    for (let i = 0; i < src.length; i += size) {
+      const chunk = src.slice(i, i + size);
+      chartData.push({ label: chunk[0].dateStr, pain: bucket(chunk), isAvg: chunk.length > 1 });
     }
   }
 
   const showLabel = i => {
     if (range === "7") return true;
     if (range === "30") return i % 2 === 0 || i === chartData.length - 1;
-    return true;
+    return i % 2 === 0 || i === chartData.length - 1;
   };
 
   const W = 320, H = 108, padX = 18, padY = 12;
@@ -239,7 +284,9 @@ function ProgressScreen() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 10 }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 16.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap" }}>Dodržiavanie plánu</div>
-              <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>Tento týždeň</div>
+              <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>
+                {range === "7" ? "Tento týždeň" : range === "30" ? "Po 3 dňoch · 30 dní" : "Po 6 dňoch · 3 mesiace"}
+              </div>
             </div>
             <span style={{ fontSize: 12.5, fontWeight: 650, color: "var(--ok-ink)", background: "var(--ok-wash)",
               borderRadius: 9, padding: "5px 10px", whiteSpace: "nowrap", flexShrink: 0 }}>+12 %</span>

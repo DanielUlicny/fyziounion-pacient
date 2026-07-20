@@ -101,7 +101,12 @@ function Tutorial({ open, onClose, onOpenEx, onCloseEx }) {
       const o = overlay.getBoundingClientRect();
       const r = target.getBoundingClientRect();
       if (cancelled) return;
-      setRect({ x: r.left - o.left, y: r.top - o.top, w: r.width, h: r.height });
+      // the whole device may be host-scaled: getBoundingClientRect returns scaled
+      // px, but the ring is positioned in the overlay's unscaled local coords —
+      // divide the delta by the measured scale so the spotlight lands exactly.
+      const scale = overlay.offsetWidth ? o.width / overlay.offsetWidth : 1;
+      const s = scale || 1;
+      setRect({ x: (r.left - o.left) / s, y: (r.top - o.top) / s, w: r.width / s, h: r.height / s });
     };
 
     // Scroll target into view
