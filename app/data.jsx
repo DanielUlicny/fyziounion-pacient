@@ -1,4 +1,7 @@
 // app/data.jsx — Slovak content model + icon set for fyzio
+// FZ_PLAN_DOW: the one weekday set the plan runs on (0=Sun … 6=Sat).
+// Both the adherence/pain history and the progress grid read it, so they can never disagree.
+const FZ_PLAN_DOW = [1, 2, 4, 5]; // Po, Ut, Št, Pi
 // Exports to window: FYZIO, Icon
 
 // Resolve media through the standalone bundler's inlined blobs when present,
@@ -17,9 +20,18 @@ const FYZIO = {
   },
   therapists: [
   { id: "t1", name: "Mgr. Peter Novák", clinic: "Fyzio Centrum Bratislava", initials: "PN",
-    email: "peter.novak@fyziocentrum.sk", phone: "+421 903 112 244" },
+    email: "peter.novak@fyziocentrum.sk", phone: "+421 903 112 244",
+    checkin: ["sleep", "stress", "meds"],
+    ownQuestions: [
+    { id: "t1q1", q: "Cítili ste dnes trňutie do ruky?", opts: ["Nie", "Občas", "Často"] }] },
   { id: "t2", name: "Mgr. Eva Horváthová", clinic: "Rehab Klinika Košice", initials: "EH",
-    email: "eva.horvathova@rehabklinika.sk", phone: "+421 905 778 991" }],
+    email: "eva.horvathova@rehabklinika.sk", phone: "+421 905 778 991",
+    checkin: ["sleep", "food", "alcohol"],
+    ownQuestions: [
+    { id: "t2q1", q: "Zvládli ste chôdzu po schodoch?", opts: ["Bez bolesťí", "S námahou", "Nezvládol/la"] }] },
+  { id: "t3", name: "Mgr. Jana Bieliková", clinic: "Fyzio Štúdio Nitra", initials: "JB",
+    email: "jana.bielikova@fyziostudio.sk", phone: "+421 907 445 120",
+    checkin: ["sleep"], ownQuestions: [] }],
 
   program: {
     name: "Bolesť krku a ramien",
@@ -28,51 +40,83 @@ const FYZIO = {
     progress: 0.36,
     minDays: 4
   },
+  // state: waiting | running | paused | done
+  // today: { kind: "exercise" | "rest" | "done", count } — only for running programs
   programs: [
   { id: "p1", name: "Bolesť krku a ramien", therapistId: "t1", phase: "Fáza 1", phaseNum: 1, phaseTotal: 3,
     phaseName: "Uvoľnenie a mobilita", week: "3. týždeň z 8", progress: 0.36, exCount: 4,
-    mins: 12, minDays: 4, active: true, status: "Prebieha", isNew: true,
-    weeksTotal: 11, equipment: ["Odporová guma", "Stolička"],
+    mins: 12, minDays: 4, active: true, state: "running", today: { kind: "exercise", count: 4 }, isNew: true, startedDaysAgo: 16,
+    activeDays: { Po: true, Ut: true, St: false, "Št": true, Pi: true, So: false, Ne: false },
+    weeksTotal: 11, equipment: ["Odporová guma", "Lavička"],
     phaseGoal: "V tejto fáze sa sústredíme na uvoľnenie a obnovenie rozsahu pohybu krku a ramien. Cviky sú mierne a robte ich pomaly, bez švihu.",
     phases: [
     { name: "Uvoľnenie a mobilita", weeks: "1.–3. týždeň", dur: "7 dní" },
     { name: "Posilnenie", weeks: "4.–6. týždeň", dur: "4 týždne" },
     { name: "Návrat k záťaži", weeks: "7.–8. týždeň", dur: "6 týždňov" }]
   },
+  { id: "p6", name: "Posilnenie stredu tela", therapistId: "t1", phase: "Dokončené", phaseNum: 3, phaseTotal: 3,
+    phaseName: "Návrat k záťaži", week: "10 týždňov", progress: 1, exCount: 5,
+    mins: 14, minDays: 3, active: false, state: "done", endDate: "3. 4. 2026", isNew: false,
+    weeksTotal: 10, equipment: ["Podložka", "Odporová guma"],
+    phaseGoal: "Posilňujeme hlboký stabilizačný systém. Cviky robte pomaly a s dôrazom na dýchanie.",
+    phases: [
+    { name: "Aktivácia", weeks: "1.–4. týždeň", dur: "4 týždne" },
+    { name: "Posilnenie", weeks: "5.–8. týždeň", dur: "4 týždne" },
+    { name: "Návrat k záťaži", weeks: "9.–10. týždeň", dur: "2 týždne" }]
+  },
+  { id: "p4", name: "Rehabilitácia kolena po artroskopii", therapistId: "t2", phase: "Fáza 1", phaseNum: 1, phaseTotal: 3,
+    phaseName: "Rozsah pohybu", week: "2. týždeň z 12", progress: 0.14, exCount: 4,
+    mins: 10, minDays: 4, active: true, state: "running", today: { kind: "rest" }, isNew: false, startedDaysAgo: 9,
+    activeDays: { Po: true, Ut: false, St: true, "Št": false, Pi: true, So: true, Ne: false },
+    weeksTotal: 12, equipment: ["Podložka", "Uterák"],
+    phaseGoal: "Obnovujeme rozsah pohybu kolena. Nikdy necvičte cez bolesť.",
+    phases: [
+    { name: "Rozsah pohybu", weeks: "1.–4. týždeň", dur: "4 týždne" },
+    { name: "Sila", weeks: "5.–9. týždeň", dur: "5 týždňov" },
+    { name: "Návrat k športu", weeks: "10.–12. týždeň", dur: "3 týždne" }]
+  },
+  { id: "p5", name: "Bolesť dolnej časti chrbta", therapistId: "t2", phase: "Fáza 2", phaseNum: 2, phaseTotal: 3,
+    phaseName: "Stabilizácia", week: "4. týždeň z 9", progress: 0.28, exCount: 5,
+    mins: 13, minDays: 4, active: false, state: "paused", isNew: false, startedDaysAgo: 22,
+    activeDays: { Po: false, Ut: true, St: true, "Št": true, Pi: false, So: false, Ne: true },
+    weeksTotal: 9, equipment: ["Podložka"],
+    phaseGoal: "Program je dočasne pozastavený vaším fyzioterapeutom.",
+    phases: [
+    { name: "Uvoľnenie", weeks: "1.–3. týždeň", dur: "3 týždne" },
+    { name: "Stabilizácia", weeks: "4.–6. týždeň", dur: "3 týždne" },
+    { name: "Záťaž", weeks: "7.–9. týždeň", dur: "3 týždne" }]
+  },
   { id: "p2", name: "Mobilita ramena", therapistId: "t2", phase: "Dokončené", phaseNum: 3, phaseTotal: 3,
     phaseName: "Návrat k záťaži", week: "6 týždňov", progress: 1, exCount: 5,
-    mins: 15, minDays: 3, active: false, status: "Dokončené", isNew: false,
+    mins: 15, minDays: 3, active: false, state: "done", endDate: "12. 5. 2026", isNew: false,
     weeksTotal: 6, equipment: ["Odporová guma", "Činka 2 kg"],
     phaseGoal: "Program je dokončený. Skvelá práca!",
     phases: [
     { name: "Mobilizácia", weeks: "1.–2. týždeň", dur: "2 týždne" },
     { name: "Stabilita", weeks: "3.–4. týždeň", dur: "2 týždne" },
     { name: "Návrat k záťaži", weeks: "5.–6. týždeň", dur: "2 týždne" }]
+  },
+  { id: "p3", name: "Stabilizácia bedrového kĺbu", therapistId: "t1", phase: "Fáza 1", phaseNum: 1, phaseTotal: 3,
+    phaseName: "Aktivácia", week: "1. týždeň z 8", progress: 0, exCount: 4,
+    mins: 11, minDays: 3, active: false, state: "waiting", isNew: true, daysFixed: false,
+    activeDays: { Po: true, Ut: false, St: true, "Št": false, Pi: true, So: false, Ne: false },
+    weeksTotal: 8, equipment: ["Odporová guma", "Lavička"],
+    phaseGoal: "Začíname aktiváciou sedacích svalov. Cviky robte pomaly a bez švihu.",
+    phases: [
+    { name: "Aktivácia", weeks: "1.–3. týždeň", dur: "3 týždne" },
+    { name: "Stabilita", weeks: "4.–6. týždeň", dur: "3 týždne" },
+    { name: "Záťaž", weeks: "7.–8. týždeň", dur: "2 týždne" }]
   }],
 
-  // weekday selector — Slovak abbreviations, today = Po 8
-  days: [
-  { key: "d03", dow: "St", num: 3, status: "done" },
-  { key: "d04", dow: "Št", num: 4, status: "done" },
-  { key: "d05", dow: "Pi", num: 5, status: "done" },
-  { key: "d06", dow: "So", num: 6, status: "rest" },
-  { key: "d07", dow: "Ne", num: 7, status: "rest" },
-  { key: "d08", dow: "Po", num: 8, status: "today" },
-  { key: "d09", dow: "Ut", num: 9, status: "exercise" },
-  { key: "d10", dow: "St", num: 10, status: "rest" },
-  { key: "d11", dow: "Št", num: 11, status: "exercise" },
-  { key: "d12", dow: "Pi", num: 12, status: "exercise" },
-  { key: "d13", dow: "So", num: 13, status: "rest" },
-  { key: "d14", dow: "Ne", num: 14, status: "rest" }],
+  // weekday selector — generated per real calendar week (Monday first)
+  days: [],
 
   exercises: [
   {
     id: "e1",
-    name: "Aktívna rotácia krku",
-    variation: "V sede",
-    video: RES("rotaciaVid", "media/cvik-rotacia-krku.mp4"),
-    poster: RES("rotaciaPos", "media/cvik-rotacia-krku.png"),
-    hint: "Pomaly otáčajte hlavu vľavo a vpravo.",
+    name: "Aktívna flexia a extenzia krku",
+    video: RES("flexExtVid", "uploads/Aktívna-Flexia-A-Extenzia-Krku-Bez-Variácie.mp4"),
+    hint: "Pomaly predkláňajte a zakláňajte hlavu.",
     note: "Lucia, seďte vzpriamene a pohyb veďte plynulo. Otáčajte len po hranicu, kde necítite bolesť.",
     sets: 2,
     kind: "time",
@@ -83,9 +127,7 @@ const FYZIO = {
   {
     id: "e2",
     name: "Aktívna bočná flexia krku",
-    variation: "V sede",
-    video: RES("flexiaVid", "media/cvik-flexia-krku.mp4"),
-    poster: RES("flexiaPos", "media/cvik-flexia-krku.png"),
+    video: RES("bocnaVid", "uploads/Aktívna-Bočná-Flexia-Krku-Bez-Variácie.mp4"),
     hint: "Nakláňajte ucho k ramenu, striedavo na obe strany.",
     sets: 2,
     kind: "time",
@@ -95,12 +137,11 @@ const FYZIO = {
   },
   {
     id: "e3",
-    name: "Krčenie ramien",
-    variation: "S odporovou gumou",
-    video: RES("krcenieVid", "media/cvik-krcenie-ramien.mp4"),
-    poster: RES("krceniePos", "media/cvik-krcenie-ramien.png"),
-    hint: "Zdvíhajte ramená k ušiam a pomaly ich spúšťajte.",
-    note: "Ramená zdvíhajte kontrolovane, na vrchole krátko podržte a pomaly uvoľnite. Nezakláňajte hlavu.",
+    name: "Aktívna flexia a extenzia krku",
+    variation: "S oporou o stôl",
+    video: RES("oporaVid", "uploads/Aktívna-Flexia-A-Extenzia-Krku-S-Oporou-O-Stôl.mp4"),
+    hint: "Predlaktia oprite o stôl a pohyb veďte plynulo.",
+    note: "Pohyb veďte kontrolovane, na konci rozsahu krátko podržte. Neprepínajte záklon.",
     sets: 3,
     kind: "reps",
     reps: 12,
@@ -109,11 +150,10 @@ const FYZIO = {
   },
   {
     id: "e4",
-    name: "Výpad",
-    variation: "Bez pomôcok",
-    video: RES("vypadVid", "media/cvik-vypad.mp4"),
-    poster: RES("vypadPos", "media/cvik-vypad.png"),
-    hint: "Vykročte vpred a pokrčte kolená do výpadu.",
+    name: "Aktívna flexia a extenzia krku",
+    variation: "Štvornožka",
+    video: RES("stvorVid", "uploads/Aktívna-Flexia-A-Extenzia-Krku-Štvornožka.mp4"),
+    hint: "V pozícii na štyroch pomaly predkláňajte a zakláňajte hlavu.",
     sets: 2,
     kind: "reps",
     reps: 10,
@@ -131,23 +171,28 @@ const FYZIO = {
   adherenceHistory: (() => {
     const today = new Date(2026, 5, 9);
     const out = [];
-    const trainDays = [1, 2, 4, 5]; // Mon,Tue,Thu,Fri (0=Sun)
-    for (let i = 89; i >= 0; i--) {
+    const trainDays = FZ_PLAN_DOW;
+    for (let i = 187; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       const dow = d.getDay();
       const isTrain = trainDays.includes(dow);
-      const prog = (89 - i) / 89;
+      const prog = (187 - i) / 187;
       const compliance = 0.55 + prog * 0.35; // improves over time
-      const v = isTrain ? Math.random() < compliance ? 1 : 0 : 0;
-      out.push({ v, date: d, dateStr: `${d.getDate()}.${d.getMonth() + 1}`, isTrain });
+      const total = 4;
+      // repeating pattern over training days: full, full, partial, full, missed, full, partial
+      const tIdx = out.filter((x) => x.isTrain).length;
+      const pat = [total, total, 2, total, 0, total, 3];
+      const doneEx = !isTrain ? 0 : pat[tIdx % pat.length];
+      out.push({ v: doneEx > 0 ? 1 : 0, doneEx, totalEx: total, date: d,
+        dateStr: `${d.getDate()}.${d.getMonth() + 1}`, isTrain });
     }
     return out;
   })(),
   painHistory: (() => {
     const today = new Date(2026, 5, 9); // June 9, 2026
     const skM = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Máj', 'Jún', 'Júl', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
-    const trainDays = [1, 2, 4, 5]; // Po, Ut, Št, Pi
+    const trainDays = FZ_PLAN_DOW;
     const out = [];
     for (let i = 89; i >= 0; i--) {
       const d = new Date(today);
@@ -174,6 +219,7 @@ const FYZIO = {
     title: "Závažnosť tendinopatie – Achillova šľacha",
     short: "TENDINS-A",
     dueLabel: "Dnes",
+    due: true,
     intervalDays: 14,
     lastDate: "2. jún",
     maxScore: 100,
@@ -290,8 +336,125 @@ const FYZIO = {
   }
 };
 
+// ── Calendar week helpers (Monday-first, driven by the real date) ──────
+const FZ_DOW = ["Ne", "Po", "Ut", "St", "Št", "Pi", "So"];
+const fzKey = (d) => "d" + d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
+const fzMonday = (d) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const off = (x.getDay() + 6) % 7; x.setDate(x.getDate() - off); return x; };
+FYZIO.today = () => new Date();
+FYZIO.todayKey = () => fzKey(FYZIO.today());
+// the seven days of the calendar week that contains today + offset weeks
+FYZIO.weekDays = (offset = 0) => {
+  const today = FYZIO.today();
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const start = fzMonday(today);
+  start.setDate(start.getDate() + offset * 7);
+  return Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const dow = FZ_DOW[d.getDay()];
+    const train = !!FYZIO.activeDays[dow];
+    const t = d.getTime();
+    const status = t === t0 ? "today" : !train ? "rest" : t < t0 ? FYZIO.pastStatus(fzKey(d)) : "exercise";
+    return { key: fzKey(d), dow, num: d.getDate(), date: d, status, isTraining: train, past: t < t0, future: t > t0 };
+  });
+};
+// a scrollable range of whole weeks (Monday first) around the week of a given day
+FYZIO.planDow = FZ_PLAN_DOW;
+FYZIO.progActiveDays = (prog) => prog && prog.activeDays ? prog.activeDays : FYZIO.activeDays;
+// is today a training day for this program?
+FYZIO.isTrainingToday = (prog) => {
+  if (!prog || FYZIO.pState(prog) !== "running") return false;
+  return !!FYZIO.progActiveDays(prog)[FZ_DOW[FYZIO.today().getDay()]];
+};
+FYZIO.progStart = (prog) => {
+  if (!prog) return null;
+  if (prog.startDate) { const p = FYZIO.keyToDate(prog.startDate); if (p) return p; }
+  if (prog.startedDaysAgo == null) return null;
+  const t = FYZIO.today();
+  return new Date(t.getFullYear(), t.getMonth(), t.getDate() - prog.startedDaysAgo);
+};
+FYZIO.dayRange = (centerKey, weeksBack = 3, weeksFwd = 3, prog = null) => {
+  const act = FYZIO.progActiveDays(prog);
+  const paused = prog ? FYZIO.pState(prog) === "paused" : false;
+  const startD = FYZIO.progStart(prog);
+  const startT = startD ? startD.getTime() : null;
+  const today = FYZIO.today();
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const c = FYZIO.keyToDate(centerKey) || new Date(t0);
+  const start = fzMonday(c);
+  start.setDate(start.getDate() - weeksBack * 7);
+  return Array.from({ length: (weeksBack + weeksFwd + 1) * 7 }).map((_, i) => {
+    const x = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    x.setDate(x.getDate() + i);
+    const dow = FZ_DOW[x.getDay()];
+    const t = x.getTime();
+    const before = startT != null && t < startT;
+    const train = !!act[dow] && !before;
+    const status = before ? "notstarted" : t === t0 ? "today" : !train ? "rest" :
+    t < t0 ? FYZIO.pastStatus(fzKey(x), prog) : "exercise";
+    return { key: fzKey(x), dow, num: x.getDate(), date: x, status, isTraining: train && !paused,
+      paused, notStarted: before, past: t < t0, future: t > t0 };
+  });
+};
+// mock adherence per program: the seed shifts so two programs never share a history
+FYZIO.pastStatus = (key, prog) => {
+  const n = parseInt(String(key).slice(-2), 10) || 0;
+  const seed = prog ? (String(prog.id).charCodeAt(1) || 0) % 3 : 0;
+  return (n + seed) % 3 === 0 ? "missed" : "done";
+};
+FYZIO.keyToDate = (key) => {
+  const m = /^d(\d{4})(\d{2})(\d{2})$/.exec(key || "");
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+};
+
+// which week (offset from the current one) a given day key belongs to
+FYZIO.weekOffsetOf = (key) => {
+  for (let o = -8; o <= 8; o++) if (FYZIO.weekDays(o).some((d) => d.key === key)) return o;
+  return 0;
+};
+FYZIO.dayByKey = (key) => { const o = FYZIO.weekOffsetOf(key); return FYZIO.weekDays(o).find((d) => d.key === key); };
+FYZIO.days = FYZIO.weekDays(0);
+
+// ── Program state helpers ────────────────────────────────────
+// demoSingle = mockup switch: pretend the patient has a single therapist + program
+FYZIO.demoSingle = false;
+FYZIO.pState = (p) => p.state || (p.progress >= 1 ? "done" : "running");
+FYZIO.allPrograms = () => FYZIO.demoSingle ?
+FYZIO.programs.filter((p) => p.therapistId === "t1" && p.id === "p1") : FYZIO.programs;
+FYZIO.homeTherapists = () => FYZIO.demoSingle ?
+FYZIO.therapists.filter((t) => t.id === "t1") : FYZIO.therapists;
+// Domov shows only live programs — finished ones live in Pokrok › História
+FYZIO.homePrograms = () => FYZIO.allPrograms().filter((p) => FYZIO.pState(p) !== "done");
+FYZIO.runningPrograms = () => FYZIO.allPrograms().filter((p) => FYZIO.pState(p) === "running");
+FYZIO.donePrograms = () => {
+  const ts = (s) => { const m = /(\d+)\.\s*(\d+)\.\s*(\d+)/.exec(s || ""); return m ? new Date(+m[3], +m[2] - 1, +m[1]).getTime() : 0; };
+  return FYZIO.allPrograms().filter((p) => FYZIO.pState(p) === "done").
+  slice().sort((a, b) => ts(b.endDate) - ts(a.endDate));
+};
+
 // ── Icons (simple line set) ──────────────────────────────────
+// Phosphor Bold overrides — filled glyphs on a 256 viewBox; `stroke` becomes the fill
+const PH_MAP = { home: "house", gear: "gear", chevR: "caretRight", chevL: "caretLeft",
+  chevronDown: "caretDown", x: "x", info: "info", spark: "sparkle",
+  arrowR: "arrowRight", external: "arrowSquareOut",
+  activity: "pulse", clipboard: "clipboardText", award: "medal", shield: "shieldCheck",
+  check: "check", checkCircle: "checkCircle", flame: "flame",
+  circle: "circle",
+  play: "play", pause: "pause", skipForward: "skipForward", timer: "timer",
+  sound: "speakerHigh", soundOff: "speakerX",
+  expand: "cornersOut", collapse: "cornersIn",
+  square: "square", checkSquare: "checkSquare",
+  mail: "envelope", phone: "phone", lock: "lock", eye: "eye", eyeOff: "eyeSlash",
+  user: "user", at: "at",
+  camera: "camera", image: "image",
+  bell: "bell", logout: "signOut", question: "question", trash: "trash", linkBreak: "linkBreak",
+  trendDown: "trendDown", trendUp: "trendUp" };
+
 function Icon({ name, size = 22, stroke = "currentColor", fill = "none", sw = 1.8, style }) {
+  const ph = PH_MAP[name] && window.PH_PATHS && window.PH_PATHS[PH_MAP[name]];
+  if (ph) return (
+    <svg width={size} height={size} viewBox="0 0 256 256" fill={stroke === "currentColor" ? "currentColor" : stroke} style={style} aria-hidden="true"><path d={ph}></path></svg>
+  );
   const common = {
     width: size, height: size, viewBox: "0 0 24 24",
     fill, stroke, strokeWidth: sw, strokeLinecap: "round", strokeLinejoin: "round",

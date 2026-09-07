@@ -6,7 +6,7 @@ function Field({ icon, type = "text", value, onChange, placeholder, trailing }) 
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 10,
-      background: "#f4f6f9", borderRadius: 14, padding: "0 14px", height: 54,
+      background: "#fff", borderRadius: 6, padding: "0 14px", height: 54,
       border: `1.5px solid ${focus ? "var(--accent)" : "transparent"}`,
       boxShadow: focus ? "0 0 0 4px var(--accent-shadow)" : "none",
       transition: "border-color .15s ease, box-shadow .15s ease",
@@ -39,7 +39,7 @@ function CodeInput({ value, onChange, len = 6 }) {
           const active = focused && i === Math.min(value.length, len - 1);
           const filled = !!chars[i];
           return (
-            <div key={i} style={{ flex: 1, height: 58, borderRadius: 14,
+            <div key={i} style={{ flex: 1, height: 58, borderRadius: 6,
               display: "flex", alignItems: "center", justifyContent: "center",
               background: filled ? "var(--accent-wash)" : "#f4f6f9",
               border: `1.5px solid ${active || filled ? "var(--accent)" : "transparent"}`,
@@ -87,7 +87,7 @@ function LoginScreen({ onContinue }) {
 
       {/* White card — centered */}
       <div key={step} className="fz-fade" style={{ width: "100%",
-        background: "#fff", borderRadius: 28, padding: "28px 24px 26px",
+        background: "#fff", borderRadius: 12, padding: "28px 24px 26px",
         boxShadow: "0 10px 44px rgba(28,40,90,0.10), 0 2px 10px rgba(28,40,90,0.06)" }}>
 
         {step === "creds" ? (

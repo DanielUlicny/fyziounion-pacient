@@ -58,9 +58,9 @@ function OField({ icon, type = "text", value, onChange, placeholder, trailing,
   const [focus, setFocus] = React.useState(false);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10,
-      background: "#f4f6f9", borderRadius: 14, padding: icon ? "0 14px" : "0 16px", height: 54,
-      border: `1.5px solid ${focus ? "var(--accent)" : "transparent"}`,
-      boxShadow: focus ? "0 0 0 4px var(--accent-shadow)" : "none",
+      background: "#fff", borderRadius: 6, padding: icon ? "0 14px" : "0 16px", height: 54,
+      border: `1px solid ${focus ? "var(--accent)" : "#EAEAEA"}`,
+      boxShadow: focus ? "0 0 0 3px var(--accent-shadow)" : "none",
       transition: "border-color .15s ease, box-shadow .15s ease" }}>
       {icon && <OIcon name={icon} size={19} stroke={focus ? "var(--accent)" : "var(--faint)"} />}
       <input type={type} value={value} placeholder={placeholder} inputMode={inputMode}
@@ -86,14 +86,14 @@ function OCheckbox({ checked, onChange, children }) {
     <button onClick={() => onChange(!checked)} style={{ display: "flex", gap: 12, alignItems: "flex-start",
       width: "100%", textAlign: "left", border: "none", background: "none", cursor: "pointer",
       fontFamily: "inherit", padding: 0 }}>
-      <span style={{ width: 24, height: 24, borderRadius: 8, flexShrink: 0, marginTop: 1,
+      <span style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0, marginTop: 1,
         display: "flex", alignItems: "center", justifyContent: "center",
-        border: `1.5px solid ${checked ? "var(--accent)" : "var(--faint)"}`,
+        border: `1px solid ${checked ? "var(--accent)" : "#EAEAEA"}`,
         background: checked ? "var(--accent)" : "#fff",
         transition: "all .15s ease" }}>
         {checked && <OIcon name="check" size={15} stroke="#fff" sw={2.4} />}
       </span>
-      <span style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--text)" }}>{children}</span>
+      <span style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--muted)" }}>{children}</span>
     </button>
   );
 }
@@ -104,10 +104,9 @@ function ObHeader({ onBack, step, total }) {
   return (
     <div style={{ flexShrink: 0, padding: "48px 22px 6px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, height: 40 }}>
-        <button onClick={onBack} aria-label="Späť" style={{ width: 40, height: 40, borderRadius: 12,
-          flexShrink: 0, border: "none", background: "#fff", cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 1px 4px rgba(30,40,70,0.06)" }}>
+        <button onClick={onBack} aria-label="Späť" style={{ width: 40, height: 40, borderRadius: 6,
+          flexShrink: 0, border: "1px solid #EAEAEA", background: "#fff", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center" }}>
           <OIcon name="chevL" size={20} stroke="var(--text)" />
         </button>
         {step && total ? (
@@ -133,7 +132,7 @@ function NextButton({ children, onClick, disabled, tone = "auto", icon }) {
   const fg = tone === "grey" ? "var(--gray-btn-ink)"
     : active ? "#fff" : "var(--gray-btn-ink)";
   return (
-    <button onClick={onClick} disabled={disabled} style={{ width: "100%", border: "none", borderRadius: 16,
+    <button onClick={onClick} disabled={disabled} style={{ width: "100%", border: "none", borderRadius: 6,
       cursor: disabled ? "default" : "pointer", padding: "16px 18px", fontSize: 16.5, fontWeight: 650,
       fontFamily: "inherit", color: fg, background: bg,
       display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
@@ -151,13 +150,12 @@ function NextButton({ children, onClick, disabled, tone = "auto", icon }) {
 function ProviderButton({ logo, children, onClick, variant = "outline" }) {
   const filled = variant === "filled";
   return (
-    <button onClick={onClick} style={{ width: "100%", borderRadius: 16, cursor: "pointer",
+    <button onClick={onClick} style={{ width: "100%", borderRadius: 6, cursor: "pointer",
       padding: "15px 18px", fontSize: 16, fontWeight: 620, fontFamily: "inherit",
       display: "flex", alignItems: "center", justifyContent: "center", gap: 11, position: "relative",
-      border: filled ? "none" : "1.5px solid var(--line)",
+      border: filled ? "none" : "1px solid #EAEAEA",
       background: filled ? "var(--accent)" : "#fff",
       color: filled ? "#fff" : "var(--ink)",
-      boxShadow: filled ? "0 6px 18px var(--accent-shadow)" : "0 1px 3px rgba(30,40,70,0.05)",
       transition: "transform .12s ease" }}
       onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.985)"}
       onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}

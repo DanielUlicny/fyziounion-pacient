@@ -43,7 +43,7 @@ function OnboardingScreen({ onComplete }) {
     onComplete && onComplete();
   };
 
-  const cardStyle = { background: "#fff", borderRadius: 22, padding: 18, border: "1px solid var(--line)",
+  const cardStyle = { background: "#fff", borderRadius: 12, padding: 18, border: "1px solid var(--line)",
     boxShadow: "0 2px 10px rgba(30,40,70,0.04)" };
 
   return (

@@ -6,6 +6,12 @@ const CI_ANSWERS_KEY = "fyzio_checkin_answers";
 
 // ── local icon subset (zap + pill not in global Icon) ────────
 const CIIcon = ({ name, size = 22, stroke = "var(--ink)", sw = 1.8, fill = "none" }) => {
+  const PHM = { arrow: "arrowRight", x: "x", info: "info", check: "check",
+    activity: "pulse", moon: null };
+  const ph = PHM[name] && window.PH_PATHS && window.PH_PATHS[PHM[name]];
+  if (ph) return (
+    <svg width={size} height={size} viewBox="0 0 256 256" fill={stroke} aria-hidden="true"><path d={ph}></path></svg>
+  );
   const P = {
     moon: <path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5Z" />,
     cup: <g><path d="M5 8h11v5a5 5 0 0 1-5 5H10a5 5 0 0 1-5-5V8Z" /><path d="M16 9h2.5a2.5 2.5 0 0 1 0 5H16" /><path d="M7.5 3.5c-.6.8-.6 1.7 0 2.5M11 3.5c-.6.8-.6 1.7 0 2.5" /></g>,
@@ -62,7 +68,7 @@ function CIOptionRow({ label, note, selected, onClick }) {
   return (
     <button onClick={onClick} style={{ width: "100%", display: "flex",
       alignItems: "center", gap: 13, textAlign: "left", fontFamily: "inherit", cursor: "pointer",
-      padding: note ? "14px 16px" : "16px 16px", borderRadius: 14,
+      padding: note ? "14px 16px" : "16px 16px", borderRadius: 6,
       border: `1.5px solid ${sel ? "var(--accent)" : "var(--line)"}`,
       background: sel ? "var(--accent-wash)" : "#fff",
       transition: "background .15s ease, border-color .15s ease" }}>
@@ -91,10 +97,10 @@ function CIDoneScreen({ onDone, answers }) {
           display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
           <CIIcon name="check" size={30} stroke="var(--ok)" sw={2.4} />
         </div>
-        <div style={{ fontSize: 30, fontWeight: 800, color: "var(--ink)", letterSpacing: -0.8, lineHeight: 1.15 }}>
+        <div style={{ flexShrink: 0, fontSize: 30, fontWeight: 800, color: "var(--ink)", letterSpacing: -0.8, lineHeight: 1.2 }}>
           Ďakujeme.<br />Poďme cvičiť!
         </div>
-        <div style={{ fontSize: 14.5, color: "var(--muted)", lineHeight: 1.55, marginTop: 12, maxWidth: 280 }}>
+        <div style={{ flexShrink: 0, fontSize: 14.5, color: "var(--muted)", lineHeight: 1.55, marginTop: 12, maxWidth: 280 }}>
           Vaše odpovede boli zaznamenané a odoslané vášmu fyzioterapeutovi.
         </div>
       </div>
@@ -102,6 +108,7 @@ function CIDoneScreen({ onDone, answers }) {
         width: "100%", border: "none", borderRadius: 16, padding: "16px 18px",
         fontSize: 16.5, fontWeight: 650, fontFamily: "inherit", cursor: "pointer", color: "#fff",
         background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
+        whiteSpace: "nowrap", flexShrink: 0,
         boxShadow: "0 8px 22px var(--accent-shadow)" }}>
         Začať cvičenie
         <CIIcon name="arrow" size={19} stroke="#fff" sw={2.2} />
@@ -111,15 +118,58 @@ function CIDoneScreen({ onDone, answers }) {
 }
 
 // ── main component ───────────────────────────────────────────
-function MorningCheckIn({ onDone }) {
+function CIPainStep({ value, onChange }) {
+  const label = value == null ? "Vyberte úroveň" : value <= 2 ? "Žiadna alebo mierna" : value <= 5 ? "Mierna bolesť" : value <= 7 ? "Stredná bolesť" : "Silná bolesť";
+  return (
+    <div>
+      <div style={{ fontSize: 14, color: "var(--muted)", marginTop: -12, marginBottom: 18 }}>
+        0 = žiadna bolesť · 10 = najsilnejšia
+      </div>
+      <div style={{ textAlign: "center", marginBottom: 20 }}>
+        <span style={{ fontSize: 52, fontWeight: 800, letterSpacing: -1.8, lineHeight: 1,
+          color: value == null ? "var(--faint)" : "var(--accent)", fontVariantNumeric: "tabular-nums" }}>
+          {value == null ? "–" : value}
+        </span>
+        <div style={{ fontSize: 15, fontWeight: 660, marginTop: 8,
+          color: value == null ? "var(--faint)" : "var(--accent)" }}>{label}</div>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+        {Array.from({ length: 11 }).map((_, n) => {
+          const sel = value === n;
+          return (
+            <button key={n} onClick={() => onChange(n)} style={{
+              width: 48, height: 48, borderRadius: "50%", cursor: "pointer", fontFamily: "inherit",
+              fontSize: 17, fontWeight: sel ? 760 : 560,
+              border: sel ? "none" : "1.5px solid var(--line)",
+              background: sel ? "var(--accent)" : "#fff", color: sel ? "#fff" : "var(--text)",
+              transition: "background .14s ease, color .14s ease", padding: 0 }}>{n}</button>);
+
+        })}
+      </div>
+    </div>);
+
+}
+
+// mode "full": therapist's enabled check-in questions → pain → his own questions
+// mode "pain": only pain (the therapist's questions were already answered today)
+function MorningCheckIn({ onDone, therapist, mode = "full" }) {
+  const th = therapist || (window.FYZIO && FYZIO.therapists[0]) || {};
+  const steps = React.useMemo(() => {
+    const pain = { id: "pain", type: "pain", q: "Aká je dnes vaša bolesť?" };
+    if (mode === "pain") return [pain];
+    const on = th.checkin || CI_STEPS.map((s) => s.id);
+    const own = (th.ownQuestions || []).map((q) => ({ id: q.id, q: q.q, opts: q.opts.map((l) => ({ l })) }));
+    return [...CI_STEPS.filter((s) => on.includes(s.id)), pain, ...own];
+  }, [mode, th.id]);
+
   const [stepIdx, setStepIdx] = React.useState(0);
   const [answers, setAnswers] = React.useState({});
   const [done, setDone] = React.useState(false);
 
-  const step = CI_STEPS[stepIdx];
+  const step = steps[stepIdx];
   const val = step ? (answers[step.id] !== undefined ? answers[step.id] : null) : null;
   const setVal = (v) => setAnswers((a) => ({ ...a, [step.id]: v }));
-  const isLast = stepIdx >= CI_STEPS.length - 1;
+  const isLast = stepIdx >= steps.length - 1;
   const next = () => { if (isLast) setDone(true); else setStepIdx((i) => i + 1); };
   const back = () => setStepIdx((i) => Math.max(0, i - 1));
 
@@ -154,11 +204,11 @@ function MorningCheckIn({ onDone }) {
                 <div style={{ width: 40, height: 40, flexShrink: 0 }} />
               )}
               <div style={{ flex: 1, height: 5, borderRadius: 99, background: "var(--line)", overflow: "hidden" }}>
-                <div style={{ width: `${((stepIdx + 1) / CI_STEPS.length) * 100}%`, height: "100%", borderRadius: 99,
+                <div style={{ width: `${((stepIdx + 1) / steps.length) * 100}%`, height: "100%", borderRadius: 99,
                   background: "var(--accent)", transition: "width .35s cubic-bezier(.4,0,.2,1)" }} />
               </div>
               <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)", flexShrink: 0,
-                fontVariantNumeric: "tabular-nums" }}>Krok {stepIdx + 1} z {CI_STEPS.length}</span>
+                fontVariantNumeric: "tabular-nums" }}>Krok {stepIdx + 1} z {steps.length}</span>
             </div>
           </div>
 
@@ -168,6 +218,8 @@ function MorningCheckIn({ onDone }) {
 
             <div style={{ fontSize: 25, fontWeight: 780, color: "var(--ink)", letterSpacing: -0.6,
               lineHeight: 1.2, marginBottom: 22 }}>{step.q}</div>
+
+            {step.type === "pain" && <CIPainStep value={val} onChange={setVal} />}
 
             {step.opts &&
             <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>

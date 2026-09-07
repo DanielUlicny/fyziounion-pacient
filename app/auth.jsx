@@ -263,7 +263,7 @@ function GenderScreen({ go, data, setData }) {
             return (
               <button key={o} onClick={() => setData({ gender: o })} style={{ width: "100%", display: "flex",
                 alignItems: "center", gap: 13, textAlign: "left", fontFamily: "inherit", cursor: "pointer",
-                padding: "16px 16px", borderRadius: 14,
+                padding: "16px 16px", borderRadius: 6,
                 border: `1.5px solid ${sel ? "var(--accent)" : "var(--line)"}`,
                 background: sel ? "var(--accent-wash)" : "#fff", transition: "all .15s ease" }}>
                 <span style={{ width: 23, height: 23, borderRadius: "50%", flexShrink: 0,
@@ -300,7 +300,7 @@ function AuthCode({ value, onChange, len = 6, error }) {
           const filled = !!chars[i];
           const bc = error ? "var(--auth-err)" : (active || filled ? "var(--accent)" : "transparent");
           return (
-            <div key={i} style={{ flex: 1, height: 58, borderRadius: 14, display: "flex", alignItems: "center",
+            <div key={i} style={{ flex: 1, height: 58, borderRadius: 6, display: "flex", alignItems: "center",
               justifyContent: "center", background: filled ? "var(--accent-wash)" : "#f4f6f9",
               border: `1.5px solid ${bc}`, fontSize: 26, fontWeight: 700, color: "var(--ink)",
               transition: "border-color .15s ease, background .15s ease" }}>
@@ -351,6 +351,95 @@ function CodeScreen({ go, data, setData, onDone }) {
   );
 }
 
+/* ═══════════════ 8 · VÝBER PREDPLATNÉHO ═══════════════ */
+function PlanCard({ selected, onClick, name, priceMain, priceUnit, sub, badge }) {
+  return (
+    <button onClick={onClick} style={{ width: "100%", position: "relative", display: "flex", alignItems: "center",
+      gap: 14, textAlign: "left", fontFamily: "inherit", cursor: "pointer", padding: "18px 16px", borderRadius: 18,
+      border: `1.5px solid ${selected ? "var(--accent)" : "var(--line)"}`,
+      background: selected ? "var(--accent-wash)" : "#fff",
+      boxShadow: selected ? "0 6px 18px var(--accent-shadow)" : "0 1px 4px rgba(30,40,70,0.04)",
+      transition: "all .16s ease" }}>
+      <span style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <OIcon name={selected ? "checkCircle" : "circle"} size={24}
+          stroke={selected ? "var(--accent)" : "var(--faint)"} />
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
+          <span style={{ fontSize: 16, fontWeight: 720, color: "var(--ink)" }}>{name}</span>
+          {badge && <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--accent)",
+            background: "#fff", border: "1px solid var(--accent-wash2)", borderRadius: 7, padding: "2px 7px" }}>{badge}</span>}
+        </span>
+        <span style={{ display: "flex", alignItems: "baseline", gap: 4, marginTop: 6 }}>
+          <span style={{ fontSize: 23, fontWeight: 820, color: "var(--ink)", letterSpacing: -0.5 }}>{priceMain}</span>
+          <span style={{ fontSize: 13.5, color: "var(--muted)", fontWeight: 600 }}>{priceUnit}</span>
+        </span>
+        {sub && <span style={{ display: "block", fontSize: 12.5, color: "var(--muted)", marginTop: 3 }}>{sub}</span>}
+      </span>
+    </button>
+  );
+}
+
+function PlanScreen({ go, onContinue }) {
+  const [plan, setPlan] = React.useState("year");
+  const [showHelp, setShowHelp] = React.useState(false);
+  return (
+    <div className="fz-fade" style={{ height: "100%", display: "flex", flexDirection: "column", background: "#fff" }}>
+      <ObHeader onBack={() => go("code")} />
+      <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "6px 22px 8px" }}>
+        <Title sub={<span>Vyberte si plán, <strong style={{ color: "var(--text)", fontWeight: 720 }}>prvých 7 dní</strong> máte <strong style={{ color: "var(--text)", fontWeight: 720 }}>zdarma!</strong></span>}>Vyberte si predplatné</Title>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <PlanCard selected={plan === "year"} onClick={() => setPlan("year")}
+            name="Ročne" priceMain="6,31 €" priceUnit="/ mesiac"
+            sub="75,75 € ročne · ušetríte 20,13 €" badge="−21 %" />
+          <PlanCard selected={plan === "month"} onClick={() => setPlan("month")}
+            name="Mesačne" priceMain="7,99 €" priceUnit="/ mesiac"
+            sub="Účtované každý mesiac" />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 9, marginTop: 16, fontSize: 12.5,
+          color: "var(--muted)", lineHeight: 1.5 }}>
+          <OIcon name="shield" size={15} stroke="var(--muted)" style={{ flexShrink: 0, marginTop: 10 }} />
+          <span>Po 7 dňoch sa predplatné obnovuje automaticky. Zrušíte kedykoľvek v App Store / Google Play.</span>
+        </div>
+
+        {showHelp && (
+          <div className="fz-fade" style={{ marginTop: 16, display: "flex", gap: 12, alignItems: "flex-start",
+            padding: "15px 16px", borderRadius: 16, border: "1px solid var(--accent-wash2)", background: "var(--accent-wash)" }}>
+            <span style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <OIcon name="mail" size={20} stroke="var(--accent)" />
+            </span>
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 13.5, color: "var(--text)", lineHeight: 1.5 }}>
+                Ak si predplatné teraz nemôžete dovoliť, napíšte nám a spoločne nájdeme riešenie.
+              </span>
+              <a href="mailto:podpora@fyziounion.sk" style={{ display: "inline-block", marginTop: 8, fontSize: 15,
+                fontWeight: 720, color: "var(--accent-ink)", textDecoration: "none" }}>podpora@fyziounion.sk</a>
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div style={{ flexShrink: 0, padding: "12px 22px 30px" }}>
+        <button onClick={onContinue} style={{ width: "100%", border: "none", borderRadius: 16, cursor: "pointer",
+          padding: "16px 18px", fontSize: 16.5, fontWeight: 650, fontFamily: "inherit", color: "#fff",
+          background: "var(--accent)", boxShadow: "0 8px 22px var(--accent-shadow)",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          Začať 7 dní zdarma <OIcon name="chevR" size={18} stroke="#fff" />
+        </button>
+        <div style={{ textAlign: "center", marginTop: 6 }}>
+          <button onClick={() => setShowHelp((s) => !s)} style={{ border: "none", background: "none", cursor: "pointer",
+            fontFamily: "inherit", fontSize: 14, fontWeight: 620, color: "var(--muted)", padding: "9px 8px" }}>
+            Nemôžem si to dovoliť
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════ Placeholder doc sheet ═══════════════ */
 function DocSheet({ doc, onClose }) {
   return (
@@ -387,8 +476,8 @@ function DocSheet({ doc, onClose }) {
 }
 
 /* ═══════════════ ROOT STATE MACHINE ═══════════════ */
-function AuthFlow({ onLogin, onEnter }) {
-  const [screen, setScreen] = React.useState("welcome");
+function AuthFlow({ onLogin, onEnter, start = "welcome" }) {
+  const [screen, setScreen] = React.useState(start);
   const [doc, setDoc] = React.useState(null);
   const [data, setDataRaw] = React.useState({
     email: "", pw: "", phone: "", first: "", last: "", dd: "", mm: "", yyyy: "", gender: "", code: "", agree: false,
@@ -404,7 +493,8 @@ function AuthFlow({ onLogin, onEnter }) {
     name: <NameScreen go={go} data={data} setData={setData} />,
     dob: <DobScreen go={go} data={data} setData={setData} />,
     gender: <GenderScreen go={go} data={data} setData={setData} />,
-    code: <CodeScreen go={go} data={data} setData={setData} onDone={onEnter} />,
+    code: <CodeScreen go={go} data={data} setData={setData} onDone={() => go("plan")} />,
+    plan: <PlanScreen go={go} onContinue={onEnter} />,
   };
 
   return (

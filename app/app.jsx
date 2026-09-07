@@ -10,15 +10,23 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "daySelector": "minimal",
   "chartStyle": "soft",
   "imagery": "striped",
-  "painStyle": "čísla"
+  "painStyle": "čísla",
+  "jedenProgram": false,
+  "dennyCheckin": false
 }/*EDITMODE-END*/;
+
+// Domov = today's plan when exactly one program is running; the program list
+// only appears when the patient has two or more running programs.
+const fzEntry = () => FYZIO.runningPrograms().length === 1 ? "app" : "programs";
 
 function FyzioApp() {
   const [tw, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  const [route, setRoute] = React.useState(tw.showLogin === false ? "programs" : "auth"); // auth | programs | phase | app
+  FYZIO.demoSingle = tw.jedenProgram === true;
+  const [route, setRoute] = React.useState(tw.showLogin === false ? fzEntry() : "auth"); // auth | programs | phase | app
   const [tab, setTab] = React.useState("home");
-  const [program, setProgram] = React.useState(FYZIO.programs[0]);
+  const [program, setProgram] = React.useState(FYZIO.runningPrograms()[0] || FYZIO.programs[0]);
   const [showPrograms, setShowPrograms] = React.useState(false);
+  const [settingsSheet, setSettingsSheet] = React.useState(false);
   const [phaseFrom, setPhaseFrom] = React.useState("programs"); // where the phase intro was opened from
   const [startedPrograms, setStartedPrograms] = React.useState(() => {
     // programs already in progress (or completed) never re-prompt the start/setup flow
@@ -29,16 +37,28 @@ function FyzioApp() {
 
   // keep route in sync if the login tweak is toggled while on the auth screen
   React.useEffect(() => {
-    if (tw.showLogin === false && route === "auth") setRoute("programs");
+    if (tw.showLogin === false && route === "auth") setRoute(fzEntry());
     if (tw.showLogin !== false && route === "programs") setRoute("auth");
   }, [tw.showLogin]);
-  const [selectedDay, setSelectedDay] = React.useState("d08");
+
+  // one running program → straight into its plan; two or more → the list
+  React.useEffect(() => {
+    const running = FYZIO.runningPrograms();
+    if (route !== "app" && route !== "programs") return;
+    if (running.length === 1) { setProgram(running[0]); setRoute("app"); setTab("home"); }
+    else if (route === "app" && !running.some((p) => p.id === program.id)) setRoute("programs");
+  }, [tw.jedenProgram]);
+  const [selectedDay, setSelectedDay] = React.useState(FYZIO.todayKey());
   const [series, setSeries] = React.useState({ e1: 2 }); // id -> completed series count
   const [exId, setExId] = React.useState(null);
   const [showPain, setShowPain] = React.useState(false);
   const [showAssessment, setShowAssessment] = React.useState(false);
+  const [assessResult, setAssessResult] = React.useState(false);
   const [showCheckIn, setShowCheckIn] = React.useState(false);
   const checkInShownRef = React.useRef(false);
+  // daily gate: per therapist per day — full sequence once, then pain only per program
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const [ciDoneByTh, setCiDoneByTh] = React.useState({});
 
   // pain level + assessment are PER-PROGRAM — keyed by program id, not shared
   const [painByProgram, setPainByProgram] = React.useState({});
@@ -52,6 +72,7 @@ function FyzioApp() {
   const setPainSaved = (b) => setPainSavedByProgram((m) => ({ ...m, [pid]: b }));
   const setAssessDone = (b) => setAssessDoneByProgram((m) => ({ ...m, [pid]: b }));
   const [showTour, setShowTour] = React.useState(false);
+  const [authStart, setAuthStart] = React.useState("welcome");
   const tourSeen = React.useRef(false);
 
   // First-run coach-marks: fire once when a new patient first lands on Home
@@ -78,6 +99,8 @@ function FyzioApp() {
     try { localStorage.removeItem(TOUR_FLAG); } catch (e) {}
     setTimeout(() => setShowTour(true), 120);
   };
+  const therapistAuth = () => { setExId(null); setRoute("auth"); };
+  const therapistPlan = () => { setExId(null); setAuthStart("plan"); setRoute("auth"); };
 
   const tctx = {
     imagery: tw.imagery, density: tw.density, homeLayout: tw.homeLayout,
@@ -88,7 +111,7 @@ function FyzioApp() {
   const accent = tw.primaryColor || "#455A74";
   const dark = route === "login" && tw.loginMood === "deep";
 
-  const goPrograms = () => { setRoute("programs"); };
+  const goPrograms = () => { setRoute(fzEntry()); if (FYZIO.runningPrograms().length === 1) { setProgram(FYZIO.runningPrograms()[0]); setTab("home"); } };
   // not-yet-started program → show overview + setup; already-started → straight to home
   const selectProgram = (p) => {
     setProgram(p);
@@ -106,6 +129,7 @@ function FyzioApp() {
   };
   const openProgram = (p) => { setProgram(p); setRoute("app"); setTab("home"); setShowPrograms(false); };
   const exById = (id) => FYZIO.exercises.find((e) => e.id === id);
+  const resetSeries = (id) => setSeries((s) => ({ ...s, [id]: 0 }));
   const addSeries = (id) => setSeries((s) => {
     const ex = exById(id); if (!ex) return s;
     const cur = s[id] || 0;
@@ -134,6 +158,17 @@ function FyzioApp() {
   };
 
   const allExDone = FYZIO.exercises.length > 0 && FYZIO.exercises.every((e) => (series[e.id] || 0) >= e.sets);
+
+  // gate before the daily plan
+  const gateTh = FYZIO.therapists.find((x) => x.id === program.therapistId);
+  const ciKey = `${program.therapistId}|${todayISO}`;
+  const gateMode = !ciDoneByTh[ciKey] ? "full" : !painSavedByProgram[pid] ? "pain" : null;
+  const showGate = tw.dennyCheckin === true && route === "app" && tab === "home" && !exId && !!gateMode && !showAssessment;
+  const finishGate = (a) => {
+    if (a && a.pain != null) setPain(a.pain);
+    setPainSaved(true);
+    setCiDoneByTh((m) => ({ ...m, [ciKey]: true }));
+  };
 
   const themeVars = {
     "--accent": accent,
@@ -166,10 +201,25 @@ function FyzioApp() {
               fontFamily: "inherit", fontSize: 13.5, fontWeight: 650, color: "#fff", background: accent }}>
               <Icon name="activity" size={17} stroke="#fff" /> Spustiť check-in
             </button>
+            <button onClick={() => { setAssessResult(true); setShowAssessment(true); }} style={{ display: "flex", alignItems: "center", gap: 9,
+              width: "100%", border: "1px solid #e7eaf0", borderRadius: 12, padding: "11px 13px", cursor: "pointer",
+              fontFamily: "inherit", fontSize: 13.5, fontWeight: 650, color: "#33455c", background: "#fff" }}>
+              <Icon name="clipboard" size={17} stroke={accent} /> Výsledok dotazníka
+            </button>
             <button onClick={therapistTour} style={{ display: "flex", alignItems: "center", gap: 9,
               width: "100%", border: "1px solid #e7eaf0", borderRadius: 12, padding: "11px 13px", cursor: "pointer",
               fontFamily: "inherit", fontSize: 13.5, fontWeight: 650, color: "#33455c", background: "#fff" }}>
               <Icon name="play" size={17} stroke={accent} /> Návod pre začiatočníkov
+            </button>
+            <button onClick={therapistAuth} style={{ display: "flex", alignItems: "center", gap: 9,
+              width: "100%", border: "1px solid #e7eaf0", borderRadius: 12, padding: "11px 13px", cursor: "pointer",
+              fontFamily: "inherit", fontSize: 13.5, fontWeight: 650, color: "#33455c", background: "#fff" }}>
+              <Icon name="user" size={17} stroke={accent} /> Spustiť prihlásenie
+            </button>
+            <button onClick={therapistPlan} style={{ display: "flex", alignItems: "center", gap: 9,
+              width: "100%", border: "none", borderRadius: 12, padding: "11px 13px", cursor: "pointer",
+              fontFamily: "inherit", fontSize: 13.5, fontWeight: 650, color: "#fff", background: accent }}>
+              <Icon name="spark" size={17} stroke="#fff" /> Zobraziť plány predplatného
             </button>
           </div>
         </div>
@@ -177,17 +227,18 @@ function FyzioApp() {
         <div style={themeVars}>
           <IOSDevice dark={dark}>
             {route === "auth" ? (
-              <AuthFlow onLogin={goPrograms}
-                onEnter={() => { setProgram(FYZIO.programs[0]); setPhaseFrom("programs"); setRoute("phase"); }} />
+              <AuthFlow onLogin={goPrograms} start={authStart}
+                onEnter={() => { setProgram(FYZIO.runningPrograms()[0] || FYZIO.programs[0]); setPhaseFrom("programs"); setRoute("phase"); }} />
             ) : route === "programs" ? (
-              <ProgramsScreen onOpen={selectProgram} />
+              <ProgramsScreen onOpen={selectProgram}
+                onTab={(t) => { if (t !== "home") { setRoute("app"); setTab(t); } }} />
             ) : route === "phase" ? (
               <PhaseIntro program={program}
                 onStart={beginProgram}
                 onBack={() => setRoute(phaseFrom === "home" ? "app" : "programs")} />
             ) : exId ? (
               <ExerciseDetail ex={ex} done={exDone}
-                seriesDone={series[exId] || 0} onAddSeries={() => addSeries(exId)}
+                seriesDone={series[exId] || 0} onAddSeries={() => addSeries(exId)} onReset={() => resetSeries(exId)}
                 onBack={() => setExId(null)}
                 hasNext={!!nextEx} onNext={() => nextEx && setExId(nextEx.id)}
                 hasPrev={!!prevEx} onPrev={() => prevEx && setExId(prevEx.id)} />
@@ -208,21 +259,28 @@ function FyzioApp() {
                       onOpenCelebrate={() => setShowPain(true)} />
                   )}
                   {tab === "progress" && <ProgressScreen />}
-                  {tab === "settings" && <SettingsScreen onLogout={() => { setRoute(tw.showLogin === false ? "programs" : "auth"); setShowPain(false); }} />}
+                  {tab === "settings" && <SettingsScreen onSheet={setSettingsSheet}
+                    onLogout={() => { setRoute(tw.showLogin === false ? "programs" : "auth"); setShowPain(false); }} />}
                   {tab === "programs-tab" && null}
                 </div>
-                <BottomNav tab={tab} onTab={setTab} />
-                <Sheet open={showPrograms} onClose={() => setShowPrograms(false)} height="86%">
-                  <div style={{ fontSize: 22, fontWeight: 760, color: "var(--ink)", letterSpacing: -0.4, marginBottom: 4 }}>Vaše programy</div>
-                  <div style={{ fontSize: 13.5, color: "var(--muted)", marginBottom: 18 }}>Prepnite medzi svojimi rehabilitačnými programami.</div>
-                  <ProgramList onOpen={pickFromHome} compact />
+                {!settingsSheet && <BottomNav tab={tab} onTab={setTab} />}
+                <Sheet open={showPrograms} onClose={() => setShowPrograms(false)} height="86%"
+                  header={
+                  <div>
+                    <div style={{ fontSize: 22, fontWeight: 760, color: "var(--ink)", letterSpacing: -0.4 }}>Vaše programy</div>
+                    <div style={{ fontSize: 13.5, color: "var(--muted)", marginTop: 3 }}>Prepnite medzi svojimi rehabilitačnými programami.</div>
+                  </div>}>
+                  <ProgramList onOpen={pickFromHome} currentId={program.id} compact />
                 </Sheet>
               </div>
             )}
-            {/* Morning check-in overlay */}
-            {route === "app" && showCheckIn && (
-              <MorningCheckIn onDone={handleCheckInDone} />
-            )}
+            {/* Daily gate: check-in → pain → therapist's own questions */}
+            {showGate &&
+            <MorningCheckIn key={`${pid}-${gateMode}`} therapist={gateTh} mode={gateMode}
+              onDone={finishGate} />}
+            {/* Morning check-in overlay (preview button) */}
+            {route === "app" && showCheckIn &&
+            <MorningCheckIn therapist={gateTh} onDone={handleCheckInDone} />}
             {/* Tutorial overlay at device level — persists across home/exercise */}
             {route === "app" && showTour && (
               <Tutorial open={showTour} onClose={() => setShowTour(false)}
@@ -231,9 +289,9 @@ function FyzioApp() {
             )}
             {showAssessment && (
               <div style={{ position: "absolute", inset: 0, zIndex: 100, background: "var(--bg)" }}>
-                <Assessment
-                  onClose={() => setShowAssessment(false)}
-                  onDone={() => { setAssessDone(true); setShowAssessment(false); }} />
+                <Assessment key={assessResult ? "result" : "quiz"} showResult={assessResult}
+                  onClose={() => { setShowAssessment(false); setAssessResult(false); }}
+                  onDone={() => { setAssessDone(true); setShowAssessment(false); setAssessResult(false); }} />
               </div>
             )}
             {route === "app" && showPain && (
@@ -250,11 +308,16 @@ function FyzioApp() {
         <TweaksPanel>
           <TweakSection label="Pacient" />
           <TweakButton label="Zobraziť check-in" onClick={() => setShowCheckIn(true)} />
+          <TweakButton label="Výsledok dotazníka" onClick={() => { setAssessResult(true); setShowAssessment(true); }} />
           <TweakButton label="Prehrať návod pre nových" onClick={replayTour} />
           <TweakToggle label="Prihlasovanie" value={tw.showLogin !== false}
             onChange={(v) => setTweak("showLogin", v)} />
+          <TweakToggle label="Jeden program" value={tw.jedenProgram === true}
+            onChange={(v) => setTweak("jedenProgram", v)} />
+          <TweakToggle label="Denný check-in pred plánom" value={tw.dennyCheckin === true}
+            onChange={(v) => setTweak("dennyCheckin", v)} />
           <TweakColor label="Akcent" value={tw.primaryColor}
-            options={["#455A74", "#1c3f6e", "#3b6fe0", "#2f5fa6"]}
+            options={["#455A74", "#2563B8", "#1E4F94", "#15396B"]}
             onChange={(v) => setTweak("primaryColor", v)} />
           <TweakRadio label="Prihlásenie" value={tw.loginMood} options={["deep", "soft", "light"]}
             onChange={(v) => setTweak("loginMood", v)} />

@@ -165,13 +165,13 @@ function Tutorial({ open, onClose, onOpenEx, onCloseEx }) {
         background: rect ? "transparent" : "rgba(11,17,36,0.66)" }} />
 
       {ring && (
-        <div style={{ position: "absolute", ...ring, borderRadius: 18,
+        <div style={{ position: "absolute", ...ring, borderRadius: 12,
           boxShadow: "0 0 0 3px rgba(255,255,255,0.92), 0 0 0 9999px rgba(11,17,36,0.66)",
           transition: "left .3s ease, top .3s ease, width .3s ease, height .3s ease",
           pointerEvents: "none" }} />
       )}
 
-      <div style={{ position: "absolute", ...cardStyle, background: "#fff", borderRadius: 20,
+      <div style={{ position: "absolute", ...cardStyle, background: "#fff", borderRadius: 12,
         padding: "18px 18px 16px", boxShadow: "0 18px 50px rgba(11,17,36,0.32)",
         transition: "left .3s ease, top .3s ease, bottom .3s ease" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>

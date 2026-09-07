@@ -1,7 +1,7 @@
 // app/exercise.jsx — exercise detail: portrait video + draggable detail sheet
 // Exports to window: ExerciseDetail
 
-const CARD_DEFAULT = 300;
+const CARD_DEFAULT = 356;
 const CARD_EXPANDED = 512;
 
 function fmtTime(s) {
@@ -10,7 +10,7 @@ function fmtTime(s) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext, onNext, hasPrev, onPrev }) {
+function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onReset, onBack, hasNext, onNext, hasPrev, onPrev }) {
   const [playing, setPlaying] = React.useState(true);
   const [muted, setMuted] = React.useState(true);
   const [cur, setCur] = React.useState(0);
@@ -23,6 +23,17 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
   const drag = React.useRef({ y: 0, active: false, moved: false });
   const partial = seriesDone > 0 && !done;
   const hasTimer = ex.kind === "time";
+  // controls auto-hide after 3 s of no touch; never while paused
+  const [ctrlsOn, setCtrlsOn] = React.useState(true);
+  React.useEffect(() => {
+    if (!playing) { setCtrlsOn(true); return; }
+    if (!ctrlsOn) return;
+    const id = setTimeout(() => setCtrlsOn(false), 3000);
+    return () => clearTimeout(id);
+  }, [ctrlsOn, playing]);
+  const poke = () => setCtrlsOn(true);
+  const ctrlStyle = { opacity: ctrlsOn ? 1 : 0, transition: "opacity .2s ease",
+    pointerEvents: ctrlsOn ? "auto" : "none" };
 
   // switching exercises keeps the current view (e.g. fullscreen) but resets the clip
   React.useEffect(() => {
@@ -33,19 +44,31 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
 
   // vertical swipe on the video → next / previous exercise (works in fullscreen too)
   const vSwipe = React.useRef({ y: 0, active: false });
-  const onVideoDown = (e) => { vSwipe.current = { y: e.clientY, active: true }; };
+  const onVideoDown = (e) => { vSwipe.current = { y: e.clientY, active: true, wasOn: ctrlsOn }; poke(); };
   const onVideoUp = (e) => {
     if (!vSwipe.current.active) return;
     const dy = e.clientY - vSwipe.current.y;
     vSwipe.current.active = false;
-    if (filled) { setView("default"); setLiveH(null); return; }
+    if (Math.abs(dy) < 8) { if (vSwipe.current.wasOn) setCtrlsOn(false); return; }
     if (dy < -64 && hasNext) onNext && onNext();
     else if (dy > 64 && hasPrev) onPrev && onPrev();
   };
 
   const baseH = view === "expanded" ? CARD_EXPANDED : view === "fullscreen" ? 0 : CARD_DEFAULT;
-  const cardH = liveH != null ? liveH : baseH;
+  const cardH = baseH;
   const filled = cardH < 60; // video fills the screen
+  const sheetRef = React.useRef(null);
+  const [sheetH, setSheetH] = React.useState(CARD_DEFAULT);
+  React.useLayoutEffect(() => {
+    if (filled) { setSheetH(0); return; }
+    const el = sheetRef.current;
+    if (el) setSheetH(el.getBoundingClientRect().height);
+    const id = setTimeout(() => {
+      const el2 = sheetRef.current;
+      if (el2 && !filled) setSheetH(el2.getBoundingClientRect().height);
+    }, 120);
+    return () => clearTimeout(id);
+  }, [filled, view, ex.id, seriesDone, running, secLeft]);
   // description reveals once the sheet is pulled up past the default
   const showDetails = view === "expanded" || (liveH != null && liveH > CARD_DEFAULT + 50);
 
@@ -89,8 +112,34 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
   const timerActive = hasTimer && (running || (secLeft != null && secLeft < ex.hold));
   const startTimer = () => { setSecLeft(ex.hold); setRunning(true); };
   const cancelTimer = () => { setRunning(false); setSecLeft(ex.hold); };
+  const topInset = filled ? "calc(12px + max(env(safe-area-inset-top), 44px))" : 12;
+  const botInset = filled ? 34 : 0;
   const noTrans = liveH != null;
   const ease = "cubic-bezier(.32,.72,0,1)";
+
+  // tap = +1 series, long press = reset to 0
+  const srTimer = React.useRef(null);
+  const srLong = React.useRef(false);
+  const seriesPress = {
+    onPointerDown: () => { srLong.current = false;
+      srTimer.current = setTimeout(() => { srLong.current = true; onReset && onReset(); }, 520); },
+    onPointerUp: () => { clearTimeout(srTimer.current); if (!srLong.current) onAddSeries && onAddSeries(); },
+    onPointerCancel: () => clearTimeout(srTimer.current),
+    onPointerLeave: () => clearTimeout(srTimer.current) };
+
+  // does the description need a "Zobraziť viac" link?
+  const descText = `${ex.hint} Pohyb robte pomaly a plynulo, bez bolesti.${ex.note ? " " + ex.note : ""}`;
+  const descRef = React.useRef(null);
+  const [clamped, setClamped] = React.useState(false);
+  React.useEffect(() => {
+    const el = descRef.current; if (!el) return;
+    const check = () => {
+      const lh = parseFloat(getComputedStyle(el).lineHeight) || 23;
+      setClamped(el.scrollHeight > lh * 3 + 2);
+    };
+    const id = setTimeout(check, 60);
+    return () => clearTimeout(id);
+  }, [descText, cardH, showDetails]);
 
   const metrics = exMetrics(ex, { seriesDone, done });
   const compactStat = metrics.length >= 4;
@@ -116,7 +165,7 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
 
       {/* ── video stage (narrow phone-rectangle portrait) ── */}
       <div onPointerDown={onVideoDown} onPointerUp={onVideoUp} onPointerCancel={() => { vSwipe.current.active = false; }}
-        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: cardH,
+        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: sheetH,
         transition: noTrans ? "none" : `bottom .34s ${ease}`,
         display: "flex", alignItems: "center", justifyContent: "center",
         touchAction: "pan-x", padding: filled ? 0 : "64px 20px 12px" }}>
@@ -136,33 +185,35 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
             style={{ width: "100%", height: "100%" }}
             rounded={filled ? 0 : 26} label="video cviku" />
 
-          {!filled && (
-            <button onClick={(e) => { e.stopPropagation(); setView((v) => (v === "fullscreen" ? "default" : "fullscreen")); }}
-              onPointerDown={(e) => e.stopPropagation()}
-              aria-label="Celá obrazovka" style={{
-              position: "absolute", top: 14, right: 14, zIndex: 6,
-              width: 34, height: 34, borderRadius: "50%", border: "none",
-              background: "rgba(12,18,40,0.4)", cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Icon name="expand" size={17} stroke="#fff" sw={2} />
-            </button>
-          )}
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 5, pointerEvents: "none",
+            opacity: ctrlsOn ? 1 : 0, transition: "opacity .2s ease",
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 26%, rgba(0,0,0,0) 68%, rgba(0,0,0,0.6) 100%)" }} />
+
+          <button onClick={(e) => { e.stopPropagation(); poke(); setView((v) => v === "fullscreen" ? "default" : "fullscreen"); }}
+            onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}
+            aria-label={filled ? "Zmenšiť" : "Celá obrazovka"} style={{
+            position: "absolute", top: topInset, right: 12, zIndex: 30,
+            width: 44, height: 44, borderRadius: 6, border: "none",
+            background: "rgba(0,0,0,0.45)", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", ...ctrlStyle }}>
+            <Icon name={filled ? "collapse" : "expand"} size={19} stroke="#fff" sw={2} />
+          </button>
 
           {/* bottom control cluster — play/pause + sound row, then white scrub bar, then time labels */}
-          <button onClick={(e) => { e.stopPropagation(); setPlaying((p) => !p); }} onPointerUp={(e) => e.stopPropagation()} aria-label={playing ? "Pozastaviť" : "Prehrať"} style={{
-            position: "absolute", left: 6, bottom: 48, zIndex: 6,
+          <button onClick={(e) => { e.stopPropagation(); poke(); setPlaying((p) => !p); }} onPointerUp={(e) => e.stopPropagation()} aria-label={playing ? "Pozastaviť" : "Prehrať"} style={{
+            position: "absolute", left: 6, bottom: 48 + botInset, zIndex: 6,
             width: 44, height: 44, border: "none", background: "none", cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
-            filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.45))" }}>
-            <Icon name={playing ? "pause" : "play"} size={30} stroke="#fff" sw={2.2} />
+            filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.45))", ...ctrlStyle }}>
+            <Icon name={playing ? "pause" : "play"} size={21} stroke="#fff" sw={2.2} />
           </button>
-          <button onClick={(e) => { e.stopPropagation(); setMuted((m) => !m); }} onPointerUp={(e) => e.stopPropagation()}
+          <button onClick={(e) => { e.stopPropagation(); poke(); setMuted((m) => !m); }} onPointerUp={(e) => e.stopPropagation()}
             aria-label={muted ? "Zapnúť zvuk" : "Stlmiť"} style={{
-            position: "absolute", right: 12, bottom: 48, zIndex: 6,
+            position: "absolute", right: 12, bottom: 48 + botInset, zIndex: 6,
             width: 44, height: 44, border: "none", background: "none", cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
-            filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.45))" }}>
-            <Icon name={muted ? "soundOff" : "sound"} size={30} stroke="#fff" sw={2.2} />
+            filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.45))", ...ctrlStyle }}>
+            <Icon name={muted ? "soundOff" : "sound"} size={21} stroke="#fff" sw={2.2} />
           </button>
 
           {/* white seekable timeline — spans from the pause icon to the sound icon */}
@@ -186,8 +237,8 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
               window.addEventListener("pointermove", move);
               window.addEventListener("pointerup", up);
             }}
-            style={{ position: "absolute", left: 22, right: 22, bottom: 30, zIndex: 6,
-              height: 24, display: "flex", alignItems: "center", cursor: "pointer", touchAction: "none" }}>
+            style={{ position: "absolute", left: 22, right: 22, bottom: 30 + botInset, zIndex: 6,
+              height: 24, display: "flex", alignItems: "center", cursor: "pointer", touchAction: "none", ...ctrlStyle }}>
             <div style={{ position: "relative", width: "100%", height: 4, borderRadius: 99,
               background: "rgba(255,255,255,0.35)", pointerEvents: "none" }}>
               <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, borderRadius: 99,
@@ -199,8 +250,9 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
           </div>
 
           {/* time labels — current / total */}
-          <div style={{ position: "absolute", left: 22, right: 22, bottom: 12, zIndex: 6,
-            display: "flex", justifyContent: "space-between", pointerEvents: "none" }}>
+          <div style={{ position: "absolute", left: 22, right: 22, bottom: 12 + botInset, zIndex: 6,
+            display: "flex", justifyContent: "space-between", pointerEvents: "none",
+            opacity: ctrlsOn ? 1 : 0, transition: "opacity .2s ease" }}>
             <span style={{ fontSize: 12.5, fontWeight: 600, color: "rgba(255,255,255,0.9)",
               fontVariantNumeric: "tabular-nums", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>{fmtTime(cur)}</span>
             <span style={{ fontSize: 12.5, fontWeight: 600, color: "rgba(255,255,255,0.9)",
@@ -213,7 +265,7 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
       {!filled && (
         <button onClick={onBack} aria-label="Späť" style={{
           position: "absolute", top: 56, left: 18, zIndex: 20,
-          width: 42, height: 42, borderRadius: "50%", cursor: "pointer",
+          width: 42, height: 42, borderRadius: 6, cursor: "pointer",
           border: "1px solid var(--line)", background: "#fff",
           display: "flex", alignItems: "center", justifyContent: "center",
           boxShadow: "0 2px 8px rgba(30,40,70,0.08)" }}>
@@ -234,22 +286,16 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
       </div>
 
       {/* ── bottom detail sheet ── */}
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: cardH,
+      <div ref={sheetRef} style={{ position: "absolute", left: 0, right: 0, bottom: 0,
+        height: filled ? 0 : "auto", maxHeight: view === "expanded" ? CARD_EXPANDED : CARD_DEFAULT,
         background: "#fff", borderRadius: "24px 24px 0 0",
         boxShadow: "0 -8px 32px rgba(10,15,40,0.12)",
-        transition: noTrans ? "none" : `height .34s ${ease}`,
+        transition: "none",
         display: "flex", flexDirection: "column", overflow: "hidden",
         opacity: filled ? 0 : 1, pointerEvents: filled ? "none" : "auto" }}>
 
-        {/* drag handle */}
-        <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-          style={{ flexShrink: 0, padding: "11px 0 9px", cursor: "grab", touchAction: "none",
-            display: "flex", justifyContent: "center" }}>
-          <div style={{ width: 40, height: 5, borderRadius: 99, background: "var(--faint)" }} />
-        </div>
-
         {/* body */}
-        <div style={{ flex: 1, minHeight: 0, padding: "0 20px 22px", display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 1, minHeight: 0, padding: "18px 20px 22px", display: "flex", flexDirection: "column" }}>
 
           {/* name + variation + completion (flexShrink 0) */}
           <div style={{ flexShrink: 0, display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
@@ -260,12 +306,14 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
                 <div style={{ fontSize: 15, fontWeight: 500, color: "var(--muted)", marginTop: 5 }}>{ex.variation}</div>
               )}
             </div>
-            <button onClick={onAddSeries} aria-label="Pridať sériu" data-tour="ex-series-btn" style={{
-              flexShrink: 0, width: 50, height: 50, borderRadius: 16, cursor: "pointer", fontFamily: "inherit",
-              border: seriesDone === 0 ? "1.5px solid var(--line)" : "none",
-              background: srBg(seriesDone, ex.sets),
-              display: "flex", alignItems: "center", justifyContent: "center", transition: "background .2s ease" }}>
-              <Icon name="check" size={23} stroke={srIcon(seriesDone, ex.sets)} sw={2.4} />
+            <button {...seriesPress} aria-label={done ? "Vynulovať série" : "Pridať sériu"} data-tour="ex-series-btn" style={{
+              flexShrink: 0, width: 50, height: 50, borderRadius: 12, cursor: "pointer", fontFamily: "inherit",
+              border: "1.5px solid var(--line)",
+              backgroundColor: srBg(seriesDone, ex.sets),
+              display: "flex", alignItems: "center", justifyContent: "center", transition: "background-color .2s ease" }}>
+              {done ?
+              <Icon name="check" size={23} stroke={srIcon(seriesDone, ex.sets)} sw={2.4} /> :
+              <span style={{ fontSize: 28, fontWeight: 400, lineHeight: 1, color: "var(--ink)", marginTop: -2 }}>+</span>}
             </button>
           </div>
 
@@ -274,37 +322,40 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
             {metrics.map((m) => <Stat key={m.key} m={m} />)}
           </div>
 
-          {/* MIDDLE — description emerges here, between stats and timer */}
-          <div style={{ flex: 1, minHeight: 0, overflowY: showDetails ? "auto" : "hidden",
-            display: "flex", flexDirection: "column", justifyContent: showDetails ? "flex-start" : "center" }}>
-            {showDetails ? (
-              <div className="fz-fade" style={{ padding: "14px 0 8px" }}>
-                <div style={{ fontSize: 15.5, color: "#0d1322", lineHeight: 1.55, textWrap: "pretty" }}>
-                  {ex.hint} Pohyb robte pomaly a plynulo, bez bolesti.
-                </div>
+          {/* MIDDLE — description, clamped until expanded; link only when it overflows */}
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column",
+            marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" }}>
+            <div style={{ flex: showDetails ? 1 : "0 0 auto", minHeight: 0,
+              overflowY: showDetails ? "auto" : "hidden" }}>
+              <div ref={descRef} onClick={() => clamped && setView((v) => v === "expanded" ? "default" : "expanded")}
+                style={{ cursor: clamped ? "pointer" : "default", fontSize: 15, color: "var(--muted)",
+                lineHeight: 1.55, textWrap: "pretty",
+                ...(showDetails ? {} : { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }) }}>
+                {descText}
               </div>
-            ) : (
-              <button onClick={() => setView("expanded")} style={{ alignSelf: "center", whiteSpace: "nowrap",
-                border: "none", background: "none", cursor: "pointer", fontFamily: "inherit",
-                display: "flex", alignItems: "center", gap: 6, padding: "8px 0",
-                fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>
-                <Icon name="chevronDown" size={15} stroke="var(--muted)" style={{ transform: "rotate(180deg)" }} />
-                Potiahnite nahor pre popis
-              </button>
-            )}
+            </div>
+            {!showDetails && clamped &&
+            <button onClick={() => setView("expanded")} style={{ flexShrink: 0, alignSelf: "flex-start",
+              marginTop: 6, border: "none", background: "none",
+              padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 650, color: "var(--accent)" }}>
+              Zobraziť viac
+            </button>}
           </div>
 
           {/* TIMER — plain stopwatch row (euneo style), divider above; fixed height so it never jumps */}
           {hasTimer && (
-            <div style={{ flexShrink: 0, borderTop: "1px solid var(--line)", paddingTop: 16, marginTop: 4, marginBottom: 24 }}>
+            <div style={{ flexShrink: 0, borderTop: "1px solid var(--line)", paddingTop: 10, marginTop: 4 }}>
               <div data-tour="ex-timer">
               {timerActive ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 40 }}>
                   <Icon name="timer" size={26} stroke="var(--ink)" />
                   <span style={{ flex: 1, minWidth: 0, fontSize: 19, fontWeight: 650, color: "var(--ink)",
                     fontVariantNumeric: "tabular-nums" }}>{mm}:{ss}</span>
+                  <button onClick={() => setRunning((r) => !r)} style={{ flexShrink: 0, border: "1px solid var(--line)", cursor: "pointer",
+                    fontFamily: "inherit", background: "#fff", color: "var(--ink)", borderRadius: 6,
+                    padding: "8px 16px", fontSize: 15, fontWeight: 600 }}>{running ? "Pozastaviť" : "Pokračovať"}</button>
                   <button onClick={cancelTimer} style={{ flexShrink: 0, border: "1px solid var(--line)", cursor: "pointer",
-                    fontFamily: "inherit", background: "#fff", color: "var(--ink)", borderRadius: 10,
+                    fontFamily: "inherit", background: "#fff", color: "var(--ink)", borderRadius: 6,
                     padding: "8px 16px", fontSize: 15, fontWeight: 600 }}>Zrušiť</button>
                 </div>
               ) : (
@@ -312,7 +363,7 @@ function ExerciseDetail({ ex, done, seriesDone = 0, onAddSeries, onBack, hasNext
                   background: "transparent", border: "none", padding: 0,
                   cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
                   <Icon name="timer" size={26} stroke="var(--ink)" />
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 19, fontWeight: 650, color: "var(--ink)" }}>Nastavte časovač na {ex.hold} sekúnd</span>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 19, fontWeight: 650, color: "var(--ink)" }}>Spustiť časovač · {ex.hold} s</span>
                 </button>
               )}
               </div>

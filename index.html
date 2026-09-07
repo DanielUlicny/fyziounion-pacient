@@ -12,28 +12,30 @@
   html, body { margin: 0; padding: 0; }
   body {
     font-family: 'Inter', -apple-system, system-ui, sans-serif;
-    background: radial-gradient(120% 100% at 50% 0%, #eef1f6 0%, #e4e8f0 100%);
+    background: radial-gradient(120% 100% at 50% 0%, #F7F9FA 0%, #E7EDF1 100%);
     -webkit-font-smoothing: antialiased;
-    color: #1b2238;
+    color: #22303F;
   }
   :root {
-    --ink: #1b2238;
-    --text: #404a66;
-    --muted: #8b91a7;
-    --faint: #b3b8c8;
+    --ink: #22303F;
+    --text: #3B4C60;
+    --muted: #6A7C90;
+    --faint: #9AA8B7;
     --bg: #ffffff;
-    --line: #eaecf2;
-    --chip: #f2f4f9;
+    --line: #E2E8EB;
+    --chip: #F2F5F7;
     --mono: 'Roboto Mono', ui-monospace, monospace;
-    --ring-track: #eceef4;
-    --nav-idle: #a3a9bb;
-    --switch-off: #d8dce6;
-    --ok: #1f9e63; --ok-ink: #14794a; --ok-wash: #e8f6ee; --ok-line: #cdeadb;
-    --warm: #3b6fe0; --warm-wash: #e9eef9;
-    --rest: #5a6b8c; --rest-wash: #eceff5;
-    --danger: #39507a;
-    --gray-btn: #e7eaf1; --gray-btn-ink: #a2a9bd;
-    --auth-err: #c0453e; --auth-err-wash: #fbecea;
+    --ring-track: #EEF2F5;
+    --nav-idle: #95A3AC;
+    --switch-off: #D3DBE0;
+    --ok: #346538; --ok-ink: #346538; --ok-wash: #EDF3EC; --ok-line: #CBDDCB;
+    --warn: #E0A500; --warn-wash: #FBF1D8; --warn-ink: #8A6600;
+    --info-wash: #E8F0FB; --info-line: #CFE0F6; --info-ink: #15396B;
+    --warm: #2563B8; --warm-wash: #E8F0FB;
+    --rest: #64757D; --rest-wash: #EEF2F5;
+    --danger: #DC4B4B;
+    --gray-btn: #EEF2F5; --gray-btn-ink: #95A3AC;
+    --auth-err: #DC4B4B; --auth-err-wash: #FBEAEA;
   }
   button { font-family: inherit; }
   ::-webkit-scrollbar { width: 0; height: 0; }
@@ -47,8 +49,12 @@
   @keyframes fzScrim { from { opacity: 0; } to { opacity: 1; } }
   .fz-scrim { animation: fzScrim .28s ease both; }
   @keyframes fzShimmer { 0% { background-position: -160% 0; } 100% { background-position: 260% 0; } }
-  .fz-skeleton { background: linear-gradient(100deg, #e7eaf0 30%, #f2f4f8 50%, #e7eaf0 70%); background-size: 220% 100%; animation: fzShimmer 1.25s ease-in-out infinite; }
-  @media (prefers-reduced-motion: reduce) { .fz-fade, .fz-sheet-up, .fz-scrim, .fz-skeleton { animation: none; } }
+  .fz-skeleton { background: linear-gradient(100deg, #E7EDF1 30%, #F2F5F7 50%, #E7EDF1 70%); background-size: 220% 100%; animation: fzShimmer 1.25s ease-in-out infinite; }
+  .fz-rail::-webkit-scrollbar { display: none; }
+  .fz-press { position: relative; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: transform .18s cubic-bezier(.32,.72,0,1), opacity .18s ease; }
+  .fz-press::after { content: ""; position: absolute; inset: -10px; }
+  .fz-press[data-pressed="1"] { transform: scale(0.97); opacity: .9; }
+  @media (prefers-reduced-motion: reduce) { .fz-fade, .fz-sheet-up, .fz-scrim, .fz-skeleton { animation: none; } .fz-press { transition: none; } .fz-press[data-pressed="1"] { transform: none; } }
 </style>
 </head>
 <body>
@@ -67,6 +73,7 @@
 
 <script type="text/babel" src="tweaks-panel.jsx"></script>
 <script type="text/babel" src="frames/ios-frame.jsx"></script>
+<script type="text/babel" src="app/ph-icons.jsx"></script>
 <script type="text/babel" src="app/data.jsx"></script>
 <script type="text/babel" src="app/ui.jsx"></script>
 <script type="text/babel" src="app/login.jsx"></script>

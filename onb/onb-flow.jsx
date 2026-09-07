@@ -2,15 +2,21 @@
 // Exports to window: OnboardingFlow
 
 const VALID_CODE = "FYZ7K2";
-const REG_TOTAL = 7; // terms, creds, name, dob, gender, code, program
+const PROGRAM_NAME = "Bolesť krku a ramien";
+const MIN_DAYS = 3;
+// skutočný počet krokov závisí od zvolenej cesty (Google/Apple preskočí e-mail a heslo)
+const stepInfo = (provider, name) => {
+  const seq = ["code", "signupMethod", ...(provider === "email" ? ["creds"] : []), "name", "dob", "program", "schedule"];
+  return { step: seq.indexOf(name) + 1, total: seq.length };
+};
+
 
 // ── Brand lockup ─────────────────────────────────────────────
 function Brand({ compact = false }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
       <div style={{ width: compact ? 42 : 56, height: compact ? 42 : 56, borderRadius: compact ? 14 : 18,
-        background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "0 8px 24px var(--accent-shadow)" }}>
+        background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <OIcon name="spark" size={compact ? 24 : 32} stroke="#fff" fill="#fff" />
       </div>
       <span style={{ fontSize: compact ? 26 : 33, fontWeight: 800, color: "var(--ink)", letterSpacing: -1 }}>
@@ -36,15 +42,15 @@ const Body = ({ children, style }) => (
     {children}
   </div>
 );
-const Title = ({ children, sub }) => (
+const Title = ({ children, sub, subColor = "var(--muted)" }) => (
   <div style={{ marginBottom: 22 }}>
     <div style={{ fontSize: 26, fontWeight: 780, color: "var(--ink)", letterSpacing: -0.6, lineHeight: 1.18 }}>{children}</div>
-    {sub && <div style={{ fontSize: 14.5, color: "var(--muted)", marginTop: 8, lineHeight: 1.5 }}>{sub}</div>}
+    {sub && <div style={{ fontSize: 14.5, color: subColor, marginTop: 8, lineHeight: 1.5 }}>{sub}</div>}
   </div>
 );
 
 // ── Reusable show/hide password field ────────────────────────
-function PasswordField({ value, onChange, placeholder = "••••••••" }) {
+function PasswordField({ value, onChange, placeholder = "Vaše heslo" }) {
   const [show, setShow] = React.useState(false);
   return (
     <OField icon="lock" type={show ? "text" : "password"} value={value} onChange={onChange} placeholder={placeholder}
@@ -57,7 +63,7 @@ function PasswordField({ value, onChange, placeholder = "•••••••�
   );
 }
 
-/* ═══════════════ 1 · WELCOME / METHOD ═══════════════ */
+/* ═══════════════ 1 · WELCOME — two paths ═══════════════ */
 function WelcomeScreen({ go }) {
   return (
     <div className="fz-fade" style={{ height: "100%", display: "flex", flexDirection: "column",
@@ -73,39 +79,70 @@ function WelcomeScreen({ go }) {
         </div>
       </div>
 
-      {/* options — order per spec: login link, email, google, apple */}
-      <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 11 }}>
-        <div style={{ textAlign: "center", marginBottom: 3 }}>
-          <span style={{ fontSize: 14, color: "var(--muted)" }}>Už máte účet? </span>
-          <button onClick={() => go("login")} style={{ border: "none", background: "none", cursor: "pointer",
-            fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: "var(--accent)", padding: "2px 2px" }}>
-            Prihlásiť sa
-          </button>
-        </div>
-        <ProviderButton variant="filled" onClick={() => go("terms")}
-          logo={<OIcon name="at" size={20} stroke="#fff" />}>Pokračovať cez Email</ProviderButton>
-        <ProviderButton logo={<GoogleLogo size={19} />} onClick={() => {}}>Pokračovať cez Google</ProviderButton>
-        <ProviderButton logo={<AppleLogo size={20} />} onClick={() => {}}>Pokračovať cez Apple</ProviderButton>
+      {/* dve cesty: nový pacient s kódom · vracajúci sa pacient */}
+      <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+        <NextButton onClick={() => go("code")}>Mám prístupový kód</NextButton>
+        <button onClick={() => go("loginMethod")} style={{ border: "none", background: "none", cursor: "pointer",
+          fontFamily: "inherit", fontSize: 14.5, fontWeight: 600, color: "var(--accent)", padding: "4px 0" }}>
+          Prihlásiť sa
+        </button>
       </div>
     </div>
   );
 }
 
 /* ═══════════════ LOGIN ═══════════════ */
+/* ═══════════════ LOGIN — výber metódy ═══════════════ */
+function LoginMethodScreen({ go, setData }) {
+  const fail = (p) => { setData({ loginProvider: p }); go("noAccount"); };
+  return (
+    <Screen footer={
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+        <ProviderButton variant="filled" onClick={() => go("login")}
+          logo={<OIcon name="at" size={20} stroke="#fff" />}>Pokračovať cez e-mail</ProviderButton>
+        <ProviderButton logo={<GoogleLogo size={19} />} onClick={() => fail("google")}>Pokračovať cez Google</ProviderButton>
+        <ProviderButton logo={<AppleLogo size={20} />} onClick={() => fail("apple")}>Pokračovať cez Apple</ProviderButton>
+      </div>
+    }>
+      <ObHeader onBack={() => go("welcome")} />
+      <Body>
+        <Title sub="Použite spôsob, ktorým ste si účet vytvorili.">Prihláste sa</Title>
+      </Body>
+    </Screen>
+  );
+}
+
+/* ═══════════════ ÚČET SME NENAŠLI ═══════════════ */
+function NoAccountScreen({ go, data }) {
+  const p = data.loginProvider === "apple" ? "Apple" : "Google";
+  return (
+    <Screen footer={
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <NextButton onClick={() => go("loginMethod")}>Skúsiť iný spôsob prihlásenia</NextButton>
+        <button onClick={() => go("code")} style={{ border: "none", background: "none", cursor: "pointer",
+          fontFamily: "inherit", fontSize: 14.5, fontWeight: 600, color: "var(--accent)", padding: "4px 0" }}>
+          Zadať prístupový kód
+        </button>
+      </div>
+    }>
+      <ObHeader onBack={() => go("loginMethod")} />
+      <Body>
+        <Title sub={`Účet vytvorený cez ${p} sme nenašli. Ak ste si účet vytvorili iným spôsobom, skúste ho. Nový účet vyžaduje prístupový kód od fyzioterapeuta.`}>Účet sme nenašli</Title>
+      </Body>
+    </Screen>
+  );
+}
+
+/* ═══════════════ LOGIN — e-mail a heslo ═══════════════ */
 function LoginScreen({ go, data, setData }) {
   const ready = /\S+@\S+\.\S+/.test(data.email) && data.pw.length >= 4;
   return (
     <Screen footer={
-      <button onClick={() => ready && go("done")} disabled={!ready} style={{ width: "100%", border: "none",
-        borderRadius: 16, cursor: ready ? "pointer" : "default", padding: "16px 18px", fontSize: 16.5,
-        fontWeight: 650, fontFamily: "inherit", color: "#fff",
-        background: ready ? "var(--accent)" : "var(--accent-disabled)",
-        transition: "background .2s ease" }}>Prihlásiť sa</button>
+      <NextButton disabled={!ready} onClick={() => ready && (window.location.href = "fyzio.html")}>Prihlásiť sa</NextButton>
     }>
-      <ObHeader onBack={() => go("welcome")} />
+      <ObHeader onBack={() => go("loginMethod")} />
       <Body>
-        <div style={{ marginBottom: 26 }}><Brand compact /></div>
-        <Title sub="Zadajte e-mail a heslo k svojmu účtu pacienta.">Prihláste sa</Title>
+        <Title sub="Zadajte e-mail a heslo k svojmu účtu.">Prihláste sa</Title>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <OField icon="mail" type="email" value={data.email} onChange={(v) => setData({ email: v })} placeholder="vas@email.sk" />
           <PasswordField value={data.pw} onChange={(v) => setData({ pw: v })} />
@@ -121,39 +158,34 @@ function LoginScreen({ go, data, setData }) {
   );
 }
 
-/* ═══════════════ 2 · TERMS & CONSENT ═══════════════ */
-function TermsBox({ title, onClick }) {
+/* ═══════════════ 2 · VÝBER METÓDY (až po overení kódu) ═══════════════ */
+function DocLink({ children, onClick }) {
   return (
-    <button onClick={onClick} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12,
-      textAlign: "left", fontFamily: "inherit", cursor: "pointer", padding: "13px 15px", borderRadius: 13,
-      border: "1.5px solid var(--line)", background: "#fff" }}>
-      <span style={{ flex: 1, fontSize: 14.5, fontWeight: 600, color: "var(--ink)", lineHeight: 1.3 }}>{title}</span>
-      <OIcon name="external" size={17} stroke="var(--faint)" style={{ flexShrink: 0 }} />
-    </button>
+    <button onClick={onClick} style={{ border: "none", background: "none", padding: 0, cursor: "pointer",
+      fontFamily: "inherit", fontSize: "inherit", fontWeight: 650, color: "var(--accent)",
+      textDecoration: "underline", textUnderlineOffset: 2 }}>{children}</button>
   );
 }
-function TermsScreen({ go, data, setData, openDoc }) {
+function SignupMethodScreen({ go, data, setData, openDoc }) {
+  const pick = (p) => { setData({ provider: p }); go(p === "email" ? "creds" : "name"); };
   return (
     <Screen footer={
-      <React.Fragment>
-        <div style={{ marginBottom: 14 }}>
-          <OCheckbox checked={data.agree} onChange={(v) => setData({ agree: v })}>
-            Prečítal som si a súhlasím s Podmienkami používania a Zásadami ochrany osobných údajov.
-          </OCheckbox>
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+        <OCheckbox checked={data.marketing} onChange={(v) => setData({ marketing: v })}>
+          Chcem dostávať e-maily s novinkami a tipmi na cvičenie (nepovinné).
+        </OCheckbox>
+        <ProviderButton variant="filled" onClick={() => pick("email")}
+          logo={<OIcon name="at" size={20} stroke="#fff" />}>Pokračovať cez e-mail</ProviderButton>
+        <ProviderButton logo={<GoogleLogo size={19} />} onClick={() => pick("google")}>Pokračovať cez Google</ProviderButton>
+        <ProviderButton logo={<AppleLogo size={20} />} onClick={() => pick("apple")}>Pokračovať cez Apple</ProviderButton>
+        <div style={{ fontSize: 13, lineHeight: 1.55, color: "var(--muted)", marginTop: 5 }}>
+          Pokračovaním súhlasíte s <DocLink onClick={() => openDoc("Podmienky používania")}>Podmienkami používania</DocLink> a <DocLink onClick={() => openDoc("Zásady ochrany osobných údajov")}>Zásadami ochrany osobných údajov</DocLink>.
         </div>
-        <NextButton disabled={!data.agree} onClick={() => data.agree && go("creds")}>Ďalšie</NextButton>
-      </React.Fragment>
+      </div>
     }>
-      <ObHeader onBack={() => go("welcome")} step={1} total={REG_TOTAL} />
+      <ObHeader onBack={() => go("code")} {...stepInfo(data.provider, "signupMethod")} />
       <Body>
-        <div style={{ fontSize: 20.5, fontWeight: 720, color: "var(--ink)", letterSpacing: -0.4, lineHeight: 1.32, marginBottom: 22 }}>
-          Súhlasíte s našimi Podmienkami používania a Zásadami ochrany osobných údajov.
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-          <TermsBox title="Podmienky používania" onClick={() => openDoc("Podmienky používania")} />
-          <TermsBox title="Zásady ochrany osobných údajov" onClick={() => openDoc("Zásady ochrany osobných údajov")} />
-          <TermsBox title="O našich podmienkach" onClick={() => openDoc("O našich podmienkach")} />
-        </div>
+        <Title sub="Kód sme overili. Vyberte, ako sa budete prihlasovať.">Vytvorte si účet</Title>
       </Body>
     </Screen>
   );
@@ -164,7 +196,7 @@ function CredsScreen({ go, data, setData }) {
   const ready = /\S+@\S+\.\S+/.test(data.email) && data.pw.length >= 8;
   return (
     <Screen footer={<NextButton disabled={!ready} onClick={() => ready && go("name")}>Ďalšie</NextButton>}>
-      <ObHeader onBack={() => go("terms")} step={2} total={REG_TOTAL} />
+      <ObHeader onBack={() => go("signupMethod")} {...stepInfo("email", "creds")} />
       <Body>
         <Title sub="Tieto údaje použijete pri každom prihlásení.">E-mail a heslo</Title>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -177,9 +209,8 @@ function CredsScreen({ go, data, setData }) {
             <PasswordField value={data.pw} onChange={(v) => setData({ pw: v })} />
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 8, fontSize: 12.5,
               color: data.pw.length >= 8 ? "var(--ok-ink)" : "var(--muted)" }}>
-              <OIcon name={data.pw.length >= 8 ? "checkCircle" : "info"} size={14}
-                stroke={data.pw.length >= 8 ? "var(--ok)" : "var(--muted)"} />
-              Heslo musí mať aspoň 8 znakov.
+              {data.pw.length >= 8 && <OIcon name="checkCircle" size={14} stroke="var(--ok)" />}
+              {data.pw.length >= 8 ? "Heslo má dostatočnú dĺžku" : "Heslo musí mať aspoň 8 znakov."}
             </div>
           </div>
         </div>
@@ -193,17 +224,17 @@ function NameScreen({ go, data, setData }) {
   const ready = data.first.trim() && data.last.trim();
   return (
     <Screen footer={<NextButton disabled={!ready} onClick={() => ready && go("dob")}>Ďalšie</NextButton>}>
-      <ObHeader onBack={() => go("creds")} step={3} total={REG_TOTAL} />
+      <ObHeader onBack={() => go(data.provider === "email" ? "creds" : "signupMethod")} {...stepInfo(data.provider, "name")} />
       <Body>
         <Title sub="Aby vás fyzioterapeut vedel identifikovať.">Ako sa voláte?</Title>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
             <OLabel>Meno</OLabel>
-            <OField icon="user" value={data.first} onChange={(v) => setData({ first: v })} placeholder="Lucia" />
+            <OField icon="user" value={data.first} onChange={(v) => setData({ first: v })} placeholder="Vaše meno" />
           </div>
           <div>
             <OLabel>Priezvisko</OLabel>
-            <OField icon="user" value={data.last} onChange={(v) => setData({ last: v })} placeholder="Kováčová" />
+            <OField icon="user" value={data.last} onChange={(v) => setData({ last: v })} placeholder="Vaše priezvisko" />
           </div>
         </div>
       </Body>
@@ -214,77 +245,37 @@ function NameScreen({ go, data, setData }) {
 /* ═══════════════ 5 · DATE OF BIRTH ═══════════════ */
 function DobScreen({ go, data, setData }) {
   const [focused, setFocused] = React.useState(false);
-  const d = +data.dd, m = +data.mm, y = +data.yyyy;
-  const ready = data.dd && data.mm && data.yyyy.length === 4 &&
-    d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 1900 && y <= 2025;
-  const cell = (val, set, ph, max, w) => (
-    <input value={val} inputMode="numeric" placeholder={ph}
-      onChange={(e) => set(e.target.value.replace(/\D/g, "").slice(0, max))}
-      onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-      style={{ width: w, textAlign: "center", border: "none", outline: "none", background: "none",
-        fontFamily: "inherit", fontSize: 20, fontWeight: 700, color: "var(--ink)", padding: 0 }} />
-  );
-  const sep = { fontSize: 20, fontWeight: 500, color: "var(--faint)" };
+  const today = new Date().toISOString().slice(0, 10);
+  const MINDATE = "1900-01-01";
+  const problem = !data.dob ? ""
+    : data.dob > today ? "Dátum nemôže byť v budúcnosti."
+    : data.dob < MINDATE ? "Zadajte rok medzi 1900 a týmto rokom." : "";
+  const ready = !!data.dob && !problem;
   return (
-    <Screen footer={<NextButton disabled={!ready} onClick={() => ready && go("gender")}>Ďalšie</NextButton>}>
-      <ObHeader onBack={() => go("name")} step={4} total={REG_TOTAL} />
+    <Screen footer={<NextButton disabled={!ready} onClick={() => ready && go("program")}>Ďalšie</NextButton>}>
+      <ObHeader onBack={() => go("name")} {...stepInfo(data.provider, "dob")} />
       <Body>
-        <Title sub="Pomôže nám prispôsobiť váš rehabilitačný plán.">Dátum narodenia</Title>
-        <OLabel>Deň · mesiac · rok</OLabel>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 60,
-          background: "#f4f6f9", borderRadius: 14, padding: "0 14px",
-          border: `1.5px solid ${focused ? "var(--accent)" : "transparent"}`,
-          boxShadow: focused ? "0 0 0 4px var(--accent-shadow)" : "none",
+        <Title sub="Potrebujeme ho na overenie veku.">Dátum narodenia</Title>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, height: 54, background: "#fff",
+          borderRadius: 6, padding: "0 14px",
+          border: `1px solid ${problem ? "var(--danger)" : focused ? "var(--accent)" : "#EAEAEA"}`,
+          boxShadow: focused && !problem ? "0 0 0 3px var(--accent-shadow)" : "none",
           transition: "border-color .15s ease, box-shadow .15s ease" }}>
-          {cell(data.dd, (v) => setData({ dd: v }), "DD", 2, 42)}
-          <span style={sep}>/</span>
-          {cell(data.mm, (v) => setData({ mm: v }), "MM", 2, 48)}
-          <span style={sep}>/</span>
-          {cell(data.yyyy, (v) => setData({ yyyy: v }), "RRRR", 4, 78)}
+          <OIcon name="calendar" size={19} stroke={focused ? "var(--accent)" : "var(--faint)"} />
+          <input type="date" value={data.dob} required aria-required="true"
+            min={MINDATE} max={today}
+            onChange={(e) => setData({ dob: e.target.value })}
+            onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+            style={{ flex: 1, border: "none", outline: "none", background: "none", fontFamily: "inherit",
+              fontSize: 15.5, fontWeight: 500, color: data.dob ? "var(--ink)" : "var(--faint)", minWidth: 0 }} />
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 12, fontSize: 12.5, color: "var(--muted)" }}>
-          <OIcon name="calendar" size={15} stroke="var(--muted)" />
-          Napríklad 14 / 03 / 1990
-        </div>
+        {problem && <div style={{ fontSize: 12.5, color: "var(--danger)", marginTop: 8 }}>{problem}</div>}
       </Body>
     </Screen>
   );
 }
 
-/* ═══════════════ 6 · GENDER ═══════════════ */
-function GenderScreen({ go, data, setData }) {
-  const opts = ["Muž", "Žena", "Nebinárne", "Nechcem uviesť"];
-  return (
-    <Screen footer={<NextButton disabled={!data.gender} onClick={() => data.gender && go("code")}>Ďalšie</NextButton>}>
-      <ObHeader onBack={() => go("dob")} step={5} total={REG_TOTAL} />
-      <Body>
-        <Title sub="Vyberte jednu možnosť.">Pohlavie</Title>
-        <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-          {opts.map((o) => {
-            const sel = data.gender === o;
-            return (
-              <button key={o} onClick={() => setData({ gender: o })} style={{ width: "100%", display: "flex",
-                alignItems: "center", gap: 13, textAlign: "left", fontFamily: "inherit", cursor: "pointer",
-                padding: "16px 16px", borderRadius: 14,
-                border: `1.5px solid ${sel ? "var(--accent)" : "var(--line)"}`,
-                background: sel ? "var(--accent-wash)" : "#fff", transition: "all .15s ease" }}>
-                <span style={{ width: 23, height: 23, borderRadius: "50%", flexShrink: 0,
-                  border: `2px solid ${sel ? "var(--accent)" : "var(--faint)"}`,
-                  background: sel ? "var(--accent)" : "#fff",
-                  display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {sel && <span style={{ width: 8.5, height: 8.5, borderRadius: "50%", background: "#fff" }} />}
-                </span>
-                <span style={{ fontSize: 16, fontWeight: sel ? 660 : 500, color: sel ? "var(--accent-ink)" : "var(--ink)" }}>{o}</span>
-              </button>
-            );
-          })}
-        </div>
-      </Body>
-    </Screen>
-  );
-}
-
-/* ═══════════════ 7 · ACCESS CODE ═══════════════ */
+/* ═══════════════ ACCESS CODE (krok 1) ═══════════════ */
 function CodeInput({ value, onChange, len = 6, error }) {
   const ref = React.useRef(null);
   const [focused, setFocused] = React.useState(false);
@@ -300,11 +291,11 @@ function CodeInput({ value, onChange, len = 6, error }) {
         {Array.from({ length: len }).map((_, i) => {
           const active = focused && i === Math.min(value.length, len - 1);
           const filled = !!chars[i];
-          const bc = error ? "var(--danger)" : (active || filled ? "var(--accent)" : "transparent");
+          const bc = error ? "var(--danger)" : (active || filled ? "var(--accent)" : "#EAEAEA");
           return (
-            <div key={i} style={{ flex: 1, height: 58, borderRadius: 14, display: "flex", alignItems: "center",
-              justifyContent: "center", background: filled ? "var(--accent-wash)" : "#f4f6f9",
-              border: `1.5px solid ${bc}`, fontSize: 26, fontWeight: 700, color: "var(--ink)",
+            <div key={i} style={{ flex: 1, height: 58, borderRadius: 6, display: "flex", alignItems: "center",
+              justifyContent: "center", background: "#fff",
+              border: `1px solid ${bc}`, fontSize: 26, fontWeight: 700, color: "var(--ink)",
               transition: "border-color .15s ease, background .15s ease" }}>
               {chars[i] || (active
                 ? <span style={{ width: 2, height: 26, background: "var(--accent)", borderRadius: 2,
@@ -322,14 +313,14 @@ function CodeScreen({ go, data, setData }) {
   const ready = data.code.length >= 6;
   const confirm = () => {
     if (!ready) return;
-    if (data.code.toUpperCase() === VALID_CODE) { setError(false); go("program"); }
+    if (data.code.toUpperCase() === VALID_CODE) { setError(false); go("signupMethod"); }
     else setError(true);
   };
   return (
     <Screen footer={<NextButton disabled={!ready} onClick={confirm}>Potvrdiť</NextButton>}>
-      <ObHeader onBack={() => go("gender")} step={6} total={REG_TOTAL} />
+      <ObHeader onBack={() => go("welcome")} {...stepInfo(data.provider, "code")} />
       <Body>
-        <Title sub="Zadajte 6-miestny kód, ktorý ste dostali od svojho fyzioterapeuta.">Prístupový kód</Title>
+        <Title sub="Zadajte 6-znakový kód od svojho fyzioterapeuta — veľké písmená a číslice, napríklad FYZ7K2.">Prístupový kód</Title>
         <CodeInput value={data.code} onChange={(v) => { setData({ code: v }); setError(false); }} error={error} />
         {error && (
           <div className="fz-fade" style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14,
@@ -353,20 +344,18 @@ function CodeScreen({ go, data, setData }) {
   );
 }
 
-/* ═══════════════ 8 · ASSIGNED PROGRAM ═══════════════ */
-function ProgramScreen({ go }) {
+/* ═══════════════ 6 · ASSIGNED PROGRAM ═══════════════ */
+function ProgramScreen({ go, data }) {
   const meta = [
-    { icon: "layers", label: "Fázy", value: "3 fázy" },
-    { icon: "activity", label: "Cviky", value: "4 cviky" },
-    { icon: "clock", label: "Denne", value: "≈ 12 min" },
+    { label: "Fázy", value: "3" },
+    { label: "Cviky", value: "4" },
+    { label: "V tréningový deň", value: "≈ 12 min" },
   ];
   return (
     <Screen footer={
-      <button onClick={() => go("done")} style={{ width: "100%", border: "none", borderRadius: 16, cursor: "pointer",
-        padding: "16px 18px", fontSize: 16.5, fontWeight: 650, fontFamily: "inherit", color: "#fff",
-        background: "var(--accent)", boxShadow: "0 8px 22px var(--accent-shadow)" }}>Začať</button>
+      <NextButton onClick={() => go("schedule")}>Začať</NextButton>
     }>
-      <ObHeader onBack={() => go("code")} step={7} total={REG_TOTAL} />
+      <ObHeader onBack={() => go("dob")} {...stepInfo(data.provider, "program")} />
       <Body>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: 24 }}>
           <div style={{ width: 60, height: 60, borderRadius: "50%", background: "var(--ok-wash)",
@@ -380,32 +369,33 @@ function ProgramScreen({ go }) {
         </div>
 
         {/* program card */}
-        <div style={{ borderRadius: 22, overflow: "hidden", border: "1px solid var(--line)",
-          boxShadow: "0 6px 20px rgba(30,40,70,0.06)" }}>
-          <div style={{ padding: "18px 18px 16px", background: "var(--accent)", color: "#fff" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "var(--mono)", fontSize: 11,
-              letterSpacing: 1.2, textTransform: "uppercase", opacity: 0.8, marginBottom: 8 }}>
-              <OIcon name="activity" size={15} stroke="#fff" /> Pridelený program
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 780, letterSpacing: -0.4 }}>Bolesť krku a ramien</div>
-            <div style={{ fontSize: 13.5, opacity: 0.85, marginTop: 4 }}>Fáza 1 · Uvoľnenie a mobilita</div>
+        <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #EAEAEA", background: "#fff" }}>
+          <div style={{ padding: "18px 18px 16px" }}>
+            <div style={{ fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", fontWeight: 650,
+              color: "var(--muted)", marginBottom: 8 }}>Pridelený program</div>
+            <div style={{ fontSize: 22, fontWeight: 780, letterSpacing: -0.4, color: "var(--ink)" }}>{PROGRAM_NAME}</div>
+            <div style={{ fontSize: 13.5, color: "var(--muted)", marginTop: 4 }}>Fáza 1 · Uvoľnenie a mobilita</div>
           </div>
-          <div style={{ display: "flex", background: "#fff" }}>
+          <div style={{ display: "flex", background: "#fff", borderTop: "1px solid #EAEAEA" }}>
             {meta.map((m, i) => (
               <div key={m.label} style={{ flex: 1, padding: "16px 8px", textAlign: "center",
-                borderLeft: i ? "1px solid var(--line)" : "none" }}>
-                <OIcon name={m.icon} size={19} stroke="var(--accent)" style={{ marginBottom: 6 }} />
-                <div style={{ fontSize: 14.5, fontWeight: 720, color: "var(--ink)" }}>{m.value}</div>
-                <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 2 }}>{m.label}</div>
+                borderLeft: i ? "1px solid #EAEAEA" : "none" }}>
+                <div style={{ fontSize: 17, fontWeight: 740, color: "var(--ink)" }}>{m.value}</div>
+                <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 3, lineHeight: 1.3 }}>{m.label}</div>
               </div>
             ))}
+          </div>
+          <div style={{ display: "flex", gap: 10, padding: "14px 16px", background: "#fff",
+            borderTop: "1px solid #EAEAEA" }}>
+            <span style={{ fontSize: 12.5, color: "var(--muted)", flexShrink: 0 }}>Potrebné vybavenie</span>
+            <span style={{ fontSize: 12.5, fontWeight: 620, color: "var(--ink)", marginLeft: "auto", textAlign: "right" }}>Odporová guma, Penový valec</span>
           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginTop: 16, padding: "13px 15px",
-          borderRadius: 14, background: "var(--accent-wash)" }}>
+          borderRadius: 12, background: "var(--accent-wash)" }}>
           <OIcon name="user" size={17} stroke="var(--accent)" style={{ flexShrink: 0, marginTop: 1 }} />
-          <span style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
+          <span style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
             Program vám pridelil <strong style={{ color: "var(--accent-ink)", fontWeight: 700 }}>Mgr. Peter Novák</strong>, Fyzio Centrum Bratislava.
           </span>
         </div>
@@ -414,28 +404,75 @@ function ProgramScreen({ go }) {
   );
 }
 
-/* ═══════════════ DONE (enters app) ═══════════════ */
-function DoneScreen() {
+/* ═══════════════ 7 · SCHEDULE ═══════════════ */
+function ScheduleScreen({ go, data, setData }) {
+  const days = ["Po", "Ut", "St", "Št", "Pi", "So", "Ne"];
+  const toggle = (d) => setData({ days: data.days.includes(d) ? data.days.filter((x) => x !== d) : [...data.days, d] });
+  const [focused, setFocused] = React.useState(false);
+  const missing = Math.max(0, MIN_DAYS - data.days.length);
+  const ready = missing === 0;
   return (
-    <div className="fz-fade" style={{ height: "100%", display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center", textAlign: "center", background: "#fff", padding: "0 34px" }}>
-      <div style={{ width: 72, height: 72, borderRadius: 22, background: "var(--accent)",
-        display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 22,
-        boxShadow: "0 10px 30px var(--accent-shadow)" }}>
-        <OIcon name="spark" size={38} stroke="#fff" fill="#fff" />
-      </div>
-      <div style={{ fontSize: 24, fontWeight: 780, color: "var(--ink)", letterSpacing: -0.5 }}>Vitajte vo FyzioUnion</div>
-      <div style={{ fontSize: 14.5, color: "var(--muted)", marginTop: 10, lineHeight: 1.5, maxWidth: 260 }}>
-        Ste prihlásený. Otvorte aplikáciu a začnite s prvým cvičením.
-      </div>
-      <a href="fyzio.html" style={{ marginTop: 26, textDecoration: "none", width: "100%", maxWidth: 300 }}>
-        <div style={{ width: "100%", borderRadius: 16, padding: "15px 18px", fontSize: 16, fontWeight: 650,
-          color: "#fff", background: "var(--accent)", display: "flex", alignItems: "center",
-          justifyContent: "center", gap: 8, boxShadow: "0 8px 22px var(--accent-shadow)" }}>
-          Otvoriť aplikáciu <OIcon name="chevR" size={18} stroke="#fff" />
+    <Screen footer={
+      <NextButton disabled={!ready} onClick={() => ready && (window.location.href = "fyzio.html")}>Uložiť a začať</NextButton>
+    }>
+      <ObHeader onBack={() => go("program")} {...stepInfo(data.provider, "schedule")} />
+      <Body>
+        <Title sub={`Fyzioterapeut predpísal cvičiť aspoň ${MIN_DAYS} dni v týždni. Viac dní je v poriadku.`}>Nastavte si režim</Title>
+        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: -14, marginBottom: 20 }}>Program: {PROGRAM_NAME}</div>
+        <OLabel>Tréningové dni</OLabel>
+        <div style={{ display: "flex", gap: 7 }}>
+          {days.map((d) => {
+            const sel = data.days.includes(d);
+            return (
+              <button key={d} onClick={() => toggle(d)} aria-pressed={sel}
+                style={{ flex: 1, height: 48, borderRadius: 6, cursor: "pointer", fontFamily: "inherit",
+                  fontSize: 14, fontWeight: sel ? 680 : 550,
+                  border: `1px solid ${sel ? "var(--accent)" : "#EAEAEA"}`,
+                  background: sel ? "var(--accent)" : "#fff", color: sel ? "#fff" : "var(--text)",
+                  transition: "background .15s ease, color .15s ease" }}>{d}</button>
+            );
+          })}
         </div>
-      </a>
-    </div>
+        {missing > 0 && (
+          <div className="fz-fade" style={{ marginTop: 12, padding: "11px 13px", borderRadius: 12,
+            background: "#FBF3DB", color: "#956400", fontSize: 13, lineHeight: 1.45, fontWeight: 600 }}>
+            Fyzioterapeut predpísal aspoň {MIN_DAYS} dni v týždni. Vyberte ešte {missing === 1 ? "jeden" : missing === 2 ? "dva" : missing} {missing === 1 ? "deň" : "dni"}.
+          </div>
+        )}
+        <div style={{ marginTop: 22 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+            paddingBottom: 14 }}>
+            <span style={{ fontSize: 15, fontWeight: 620, color: "var(--ink)" }}>Pripomienky</span>
+            <button role="switch" aria-checked={data.remind} aria-label="Pripomienky"
+              onClick={() => setData({ remind: !data.remind })}
+              style={{ width: 48, height: 29, borderRadius: 999, border: "none", cursor: "pointer", padding: 3,
+                background: data.remind ? "var(--accent)" : "#DCE0E7", display: "flex",
+                justifyContent: data.remind ? "flex-end" : "flex-start",
+                transition: "background .18s ease" }}>
+              <span style={{ width: 23, height: 23, borderRadius: "50%", background: "#fff",
+                transition: "transform .18s ease" }} />
+            </button>
+          </div>
+          <div style={{ opacity: data.remind ? 1 : 0.45, transition: "opacity .18s ease" }}>
+            <OLabel>Čas pripomienky</OLabel>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, height: 54, background: "#fff",
+              borderRadius: 6, padding: "0 14px", border: `1px solid ${focused && data.remind ? "var(--accent)" : "#EAEAEA"}`,
+              boxShadow: focused && data.remind ? "0 0 0 3px var(--accent-shadow)" : "none",
+              transition: "border-color .15s ease, box-shadow .15s ease" }}>
+              <OIcon name="clock" size={19} stroke={focused && data.remind ? "var(--accent)" : "var(--faint)"} />
+              <input type="time" value={data.reminder} disabled={!data.remind}
+                onChange={(e) => setData({ reminder: e.target.value })}
+                onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+                style={{ flex: 1, border: "none", outline: "none", background: "none", fontFamily: "inherit",
+                  fontSize: 15.5, fontWeight: 500, color: "var(--ink)", minWidth: 0 }} />
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 8, lineHeight: 1.5 }}>
+              Pripomienku pošleme len v tréningové dni. Čas platí pre všetky vaše programy a viete ho kedykoľvek zmeniť.
+            </div>
+          </div>
+        </div>
+      </Body>
+    </Screen>
   );
 }
 
@@ -445,13 +482,13 @@ function DocSheet({ doc, onClose }) {
     <div style={{ position: "absolute", inset: 0, zIndex: 60 }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,28,55,0.28)" }} />
       <div className="fz-sheet" style={{ position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "86%",
-        background: "#fff", borderRadius: "26px 26px 0 0", display: "flex", flexDirection: "column",
-        paddingBottom: 30, boxShadow: "0 -10px 40px rgba(20,28,55,0.18)" }}>
+        background: "#fff", borderRadius: "12px 12px 0 0", display: "flex", flexDirection: "column",
+        paddingBottom: 30, boxShadow: "0 -4px 18px rgba(30,40,70,0.10)" }}>
         <div style={{ flexShrink: 0, width: 38, height: 5, borderRadius: 3, background: "var(--line)", margin: "10px auto 8px" }} />
         <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 20px 14px" }}>
           <span style={{ fontSize: 18, fontWeight: 740, color: "var(--ink)", letterSpacing: -0.3 }}>{doc}</span>
-          <button onClick={onClose} aria-label="Zavrieť" style={{ width: 34, height: 34, borderRadius: 10,
-            border: "none", background: "var(--chip)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <button onClick={onClose} aria-label="Zavrieť" style={{ width: 34, height: 34, borderRadius: 6,
+            border: "1px solid #EAEAEA", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <OIcon name="x" size={18} stroke="var(--muted)" />
           </button>
         </div>
@@ -479,22 +516,25 @@ function OnboardingFlow() {
   const [screen, setScreen] = React.useState("welcome");
   const [doc, setDoc] = React.useState(null);
   const [data, setDataRaw] = React.useState({
-    email: "", pw: "", first: "", last: "", dd: "", mm: "", yyyy: "", gender: "", code: "", agree: false,
+    email: "", pw: "", first: "", last: "", dob: "", code: "",
+    provider: "email", marketing: false, loginProvider: "google",
+    days: ["Po", "St", "Pi"], reminder: "18:00", remind: true,
   });
   const setData = (patch) => setDataRaw((d) => ({ ...d, ...patch }));
   const go = (s) => setScreen(s);
 
   const screens = {
     welcome: <WelcomeScreen go={go} />,
+    loginMethod: <LoginMethodScreen go={go} setData={setData} />,
+    noAccount: <NoAccountScreen go={go} data={data} />,
     login: <LoginScreen go={go} data={data} setData={setData} />,
-    terms: <TermsScreen go={go} data={data} setData={setData} openDoc={setDoc} />,
+    signupMethod: <SignupMethodScreen go={go} data={data} setData={setData} openDoc={setDoc} />,
     creds: <CredsScreen go={go} data={data} setData={setData} />,
     name: <NameScreen go={go} data={data} setData={setData} />,
     dob: <DobScreen go={go} data={data} setData={setData} />,
-    gender: <GenderScreen go={go} data={data} setData={setData} />,
     code: <CodeScreen go={go} data={data} setData={setData} />,
-    program: <ProgramScreen go={go} />,
-    done: <DoneScreen />,
+    program: <ProgramScreen go={go} data={data} />,
+    schedule: <ScheduleScreen go={go} data={data} setData={setData} />,
   };
 
   return (

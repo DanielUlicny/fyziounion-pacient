@@ -4,6 +4,18 @@
 
 // ── Icon subset (matches app/data.jsx line set) ──────────────
 function OIcon({ name, size = 22, stroke = "currentColor", fill = "none", sw = 1.8, style }) {
+  const PHM = { chevR: "caretRight", chevL: "caretLeft", chevronDown: "caretDown", x: "x",
+    info: "info", spark: "sparkle", external: "arrowSquareOut", arrowR: "arrowRight",
+    home: "house", gear: "gear", activity: "pulse", clipboard: "clipboardText",
+    award: "medal", shield: "shieldCheck", check: "check", checkCircle: "checkCircle",
+    circle: "circle", flame: "flame", square: "square", checkSquare: "checkSquare",
+    play: "play", pause: "pause", timer: "timer",
+    mail: "envelope", phone: "phone", lock: "lock", eye: "eye", eyeOff: "eyeSlash",
+    user: "user", at: "at" };
+  const ph = PHM[name] && window.PH_PATHS && window.PH_PATHS[PHM[name]];
+  if (ph) return (
+    <svg width={size} height={size} viewBox="0 0 256 256" fill={stroke === "currentColor" ? "currentColor" : stroke} style={style} aria-hidden="true"><path d={ph}></path></svg>
+  );
   const common = { width: size, height: size, viewBox: "0 0 24 24",
     fill, stroke, strokeWidth: sw, strokeLinecap: "round", strokeLinejoin: "round", style };
   const P = {
@@ -60,7 +72,7 @@ function OField({ icon, type = "text", value, onChange, placeholder, trailing,
   const inpRef = React.useRef(null);
   return (
     <div onClick={() => inpRef.current && inpRef.current.focus()} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "text",
-      background: "#f4f6f9", borderRadius: 14, padding: icon ? "0 14px" : "0 16px", height: 54,
+      background: "#fff", borderRadius: 6, padding: icon ? "0 14px" : "0 16px", height: 54,
       border: `1.5px solid ${focus ? "var(--accent)" : "transparent"}`,
       boxShadow: "none",
       transition: "border-color .15s ease, box-shadow .15s ease" }}>
@@ -88,12 +100,9 @@ function OCheckbox({ checked, onChange, children }) {
     <button onClick={() => onChange(!checked)} style={{ display: "flex", gap: 12, alignItems: "flex-start",
       width: "100%", textAlign: "left", border: "none", background: "none", cursor: "pointer",
       fontFamily: "inherit", padding: 0 }}>
-      <span style={{ width: 24, height: 24, borderRadius: 8, flexShrink: 0, marginTop: 1,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        border: `1.5px solid ${checked ? "var(--accent)" : "var(--faint)"}`,
-        background: checked ? "var(--accent)" : "#fff",
-        transition: "all .15s ease" }}>
-        {checked && <OIcon name="check" size={15} stroke="#fff" sw={2.4} />}
+      <span style={{ flexShrink: 0, marginTop: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <OIcon name={checked ? "checkSquare" : "square"} size={24}
+          stroke={checked ? "var(--accent)" : "var(--faint)"} />
       </span>
       <span style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--text)" }}>{children}</span>
     </button>
